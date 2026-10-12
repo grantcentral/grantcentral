@@ -4,6 +4,8 @@ description = "GrantCentral: headless OAuth 2.0 / OpenID Connect flow runner and
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
 
 [[bin]]
 name = "grantcentral"

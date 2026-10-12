@@ -4,6 +4,7 @@ description = "Flow engine, file model and OAuth 2.0 protocol implementation for
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 
 [features]
 default = ["chromium"]

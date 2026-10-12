@@ -94,6 +94,9 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - Shared dependency versions belong in `[workspace.dependencies]` in the root
   `Cargo.toml`. Prefer existing dependencies over new ones.
 - Rust edition 2024, MSRV 1.88. On Windows and macOS, OpenSSL is always vendored.
+- Commits follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `ci:`, `chore:`;
+  `!` or `BREAKING CHANGE:` for breaking changes). release-plz derives the version bump and
+  changelog from them. Don't bump versions or edit `CHANGELOG.md` by hand.
 - Code comments explain *why*, briefly. Doc comments on model types are
   user-facing because they become schema descriptions.
 
@@ -105,5 +108,8 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - On failure, Chromium logins save screenshots to `.grantcentral/screenshots/` in
   the project directory. CI uploads them as artifacts.
 - In containers or CI, Chromium needs `--no-sandbox` or `GRANTCENTRAL_NO_SANDBOX=true`.
+- GitHub is a push mirror of a Forgejo repository, and each sync deletes refs that
+  only exist on GitHub. CI on GitHub must never push branches or tags. Releases start
+  from a `v*` tag pushed to Forgejo (see "Releases" in `README.md`).
 - `redirect_uri` without a port means "pick a free port per run" (RFC 8252 §7.3).
   Don't "fix" it by adding a default port.

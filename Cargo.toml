@@ -6,10 +6,10 @@ members = ["crates/core", "crates/cli"]
 version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/deluxe/grantcentral"
+repository = "https://github.com/grantcentral/grantcentral"
 
 [workspace.dependencies]
-grantcentral-core = { path = "crates/core" }
+grantcentral-core = { path = "crates/core", version = "0.0.1" }
 anyhow = "1"
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }

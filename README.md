@@ -46,9 +46,22 @@ and an SDK you extract yourself:
 SDKROOT=/path/to/MacOSX.sdk cargo zigbuild --release --target aarch64-apple-darwin
 ```
 
-Pushing a `v*` tag (or running the Release workflow by hand) builds Linux,
-Windows and macOS binaries as workflow artifacts. They're unsigned: on macOS,
-clear the quarantine flag with `xattr -d com.apple.quarantine grantcentral`.
+### Releases
+
+The repository lives on Forgejo and is push-mirrored to GitHub, so releases start
+from a tag pushed to Forgejo:
+
+```sh
+release-plz update                    # bump the version and CHANGELOG.md from Conventional Commits
+git commit -am "chore: release vX.Y.Z"
+git tag vX.Y.Z && git push --follow-tags
+```
+
+When the tag reaches GitHub, the Release workflow builds Linux, Windows and macOS
+binaries, publishes both crates to crates.io and creates a GitHub Release with the
+binaries and the changelog section. Running the workflow by hand only builds the
+binaries, as workflow artifacts. They're unsigned: on macOS, clear the quarantine
+flag with `xattr -d com.apple.quarantine grantcentral`.
 
 ## Quick start
 

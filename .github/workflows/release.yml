@@ -1,8 +1,13 @@
 name: Release
+# GitHub is a push mirror of Forgejo, which deletes any ref that only exists here.
+# So the `v*` tag comes from Forgejo, and this workflow never pushes a branch or tag.
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
+  workflow_dispatch: # builds binaries as workflow artifacts only
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -28,9 +33,54 @@ jobs:
         with:
           key: ${{ matrix.target }}
       - run: cargo build --release --locked --workspace --target ${{ matrix.target }} --features grantcentral-core/vendored-openssl
+      - shell: bash
+        working-directory: target/${{ matrix.target }}/release
+        run: |
+          f=grantcentral-${{ github.ref_name }}-${{ matrix.target }}
+          if [ -f grantcentral.exe ]; then zip "$f.zip" grantcentral.exe; else tar czf "$f.tar.gz" grantcentral; fi
       - uses: actions/upload-artifact@v4
         with:
           name: grantcentral-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/grantcentral
-            target/${{ matrix.target }}/release/grantcentral.exe
+            target/${{ matrix.target }}/release/*.zip
+            target/${{ matrix.target }}/release/*.tar.gz
+
+  publish:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # crates.io trusted publishing
+    env:
+      # Only for the first release: trusted publishing needs the crates to exist.
+      HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches the workspace version
+        run: grep -qx "version = \"${GITHUB_REF_NAME#v}\"" Cargo.toml
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - if: env.HAS_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish --locked -p grantcentral-core && cargo publish --locked -p grantcentral
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN || steps.auth.outputs.token }}
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      # The notes are this version's section of the changelog written by `release-plz update`.
+      - run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '/^## /{p = index($0, "[" v "]") > 0; next} p' crates/cli/CHANGELOG.md > notes.md || true
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
