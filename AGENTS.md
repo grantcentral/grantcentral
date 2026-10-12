@@ -86,7 +86,11 @@ Without Chrome, the script skips the `chromium`-tagged flows.
   every API call (compared in constant time) and rejects non-loopback `Host`
   headers. Keep all three when you add routes in `cli/src/web.rs`.
 - The web UI is a single file, `crates/cli/web/index.html`, embedded with
-  `include_str!`. It has no build step and no npm dependencies.
+  `include_str!`. It has no build step and no npm dependencies. The only exception
+  is the editor: a pre-built CodeMirror 5 bundle in `crates/cli/web/vendor/` (the
+  rebuild recipe is in its header comment). It is served from `/vendor/*` without
+  the token, but the `Host` check still applies. Never load scripts from a CDN, because
+  the page holds the API token.
 - CLI exit codes: `0` all flows passed, `1` a flow failed, `2` usage or config error.
 - Shared dependency versions belong in `[workspace.dependencies]` in the root
   `Cargo.toml`. Prefer existing dependencies over new ones.

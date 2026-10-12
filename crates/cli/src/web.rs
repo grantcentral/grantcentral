@@ -22,6 +22,8 @@ use std::time::Duration;
 use tokio::sync::{Notify, mpsc::UnboundedSender};
 
 const INDEX: &str = include_str!("../web/index.html");
+const CM_JS: &str = include_str!("../web/vendor/codemirror.js");
+const CM_CSS: &str = include_str!("../web/vendor/codemirror.css");
 
 struct RunState {
     events: Vec<Event>,
@@ -78,6 +80,9 @@ pub async fn serve(project: Project, port: u16, open_browser: bool) -> Result<()
         .layer(middleware::from_fn_with_state(app.clone(), require_token));
     let router = Router::new()
         .route("/", get(|| async { Html(INDEX) }))
+        // Static and public, so outside the token check (the page can't send headers for <script src>).
+        .route("/vendor/codemirror.js", get(|| async { ([(header::CONTENT_TYPE, "text/javascript")], CM_JS) }))
+        .route("/vendor/codemirror.css", get(|| async { ([(header::CONTENT_TYPE, "text/css")], CM_CSS) }))
         .nest("/api", api)
         .layer(middleware::from_fn_with_state(app.clone(), check_host))
         .with_state(app);

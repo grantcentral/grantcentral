@@ -4,17 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GrantCentral</title>
+<link rel="stylesheet" href="/vendor/codemirror.css">
 <style>
 :root {
   --bg: #f7f7f8; --panel: #ffffff; --text: #1d1f23; --muted: #646a73; --border: #dfe1e5;
   --accent: #3657d6; --accent-text: #ffffff; --pass: #1d7f3e; --fail: #c4302b; --warn: #a76200; --code: #f1f2f4;
   --sel: #e8edff;
+  --tk-key: #7a3e9d; --tk-str: #1d7f3e; --tk-num: #a15c00; --tk-com: #8a9099;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #15171a; --panel: #1d2024; --text: #e6e8eb; --muted: #9aa1ab; --border: #31353b;
     --accent: #7d98ff; --accent-text: #0e1116; --pass: #52c27a; --fail: #ff6b63; --warn: #f0b04a; --code: #24282d;
     --sel: #263155;
+    --tk-key: #c792ea; --tk-str: #a5d68a; --tk-num: #f2b36b; --tk-com: #7b828c;
   }
 }
 * { box-sizing: border-box; }
@@ -27,7 +30,7 @@ button:hover:not(:disabled) { border-color: var(--accent); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 select, input[type=text] { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
-code, pre, textarea.editor { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 13px; }
+code, pre, .CodeMirror { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 13px; }
 pre { background: var(--code); padding: 8px; border-radius: 6px; overflow: auto; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
 header { display: flex; gap: 12px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
 header h1 { font-size: 16px; margin: 0; }
@@ -42,7 +45,18 @@ aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; co
 .editor-pane { display: flex; flex-direction: column; }
 .bar { display: flex; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); }
 .bar .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-textarea.editor { flex: 1; width: 100%; border: 0; resize: none; padding: 12px; background: var(--panel); outline: none; tab-size: 2; }
+.editor-pane .CodeMirror { flex: 1; min-height: 0; height: auto; background: var(--panel); color: var(--text); }
+.CodeMirror-gutters { background: var(--panel); border-right: 1px solid var(--border); }
+.CodeMirror-linenumber { color: var(--muted); }
+.CodeMirror-cursor { border-left-color: var(--text); }
+.CodeMirror-selected, .CodeMirror-focused .CodeMirror-selected { background: var(--sel); }
+.CodeMirror-matchingbracket { color: var(--accent) !important; outline: 1px solid var(--accent); }
+.CodeMirror-dialog { background: var(--panel); border-color: var(--border); }
+.cm-s-default .cm-property, .cm-s-default .cm-keyword { color: var(--tk-key); }
+.cm-s-default .cm-string, .cm-s-default .cm-string-2 { color: var(--tk-str); }
+.cm-s-default .cm-number, .cm-s-default .cm-atom { color: var(--tk-num); }
+.cm-s-default .cm-comment { color: var(--tk-com); }
+.cm-s-default .cm-variable-2, .cm-s-default .cm-def { color: var(--accent); }
 .diags { border-top: 1px solid var(--border); max-height: 30%; overflow: auto; }
 .diags pre { color: var(--fail); }
 .results { padding: 8px 12px; }
@@ -67,7 +81,7 @@ summary { cursor: pointer; }
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; height: auto; }
   aside, section { border-right: 0; border-bottom: 1px solid var(--border); }
-  textarea.editor { min-height: 50vh; }
+  .editor-pane .CodeMirror { min-height: 50vh; }
 }
 </style>
 </head>
@@ -89,11 +103,12 @@ summary { cursor: pointer; }
       <button id="save" disabled>Save</button>
       <button id="run" class="primary" disabled>Run</button>
     </div>
-    <textarea class="editor" id="editor" spellcheck="false" disabled placeholder="Select a flow or file"></textarea>
+    <textarea id="editor"></textarea>
     <div class="diags" id="diags"></div>
   </section>
   <section class="results" id="panel"></section>
 </main>
+<script src="/vendor/codemirror.js"></script>
 <script>
 "use strict";
 // The token comes in the URL fragment (never sent to the server in requests for the page).
@@ -135,7 +150,13 @@ async function api(path, opts = {}) {
 
 const state = { project: null, path: null, saved: "", view: "run", run: null, git: null, diff: null, gitOut: "" };
 
-function dirty() { return state.path && $("editor").value !== state.saved; }
+const cm = CodeMirror.fromTextArea($("editor"), {
+  lineNumbers: true, indentUnit: 2, tabSize: 2, matchBrackets: true, readOnly: "nocursor",
+  extraKeys: { Tab: (c) => (c.somethingSelected() ? c.indentSelection("add") : c.replaceSelection("  ")) },
+});
+const modes = { toml: "toml", json: { name: "javascript", json: true } };
+
+function dirty() { return state.path && cm.getValue() !== state.saved; }
 
 async function loadProject() {
   const p = await api("/project");
@@ -161,9 +182,12 @@ async function openFile(path) {
   const text = await api("/file?path=" + encodeURIComponent(path));
   state.path = path;
   state.saved = text;
-  const ed = $("editor");
-  ed.value = text;
-  ed.disabled = false;
+  // Keep CRLF files CRLF; by default CodeMirror would rejoin lines with "\n".
+  cm.setOption("lineSeparator", text.includes("\r\n") ? "\r\n" : null);
+  cm.setOption("mode", modes[path.split(".").pop()] || null);
+  cm.setOption("readOnly", false);
+  cm.setValue(text);
+  cm.clearHistory();
   updateBar();
   renderLists();
   showDiags(null);
@@ -177,7 +201,7 @@ function updateBar() {
 
 async function save() {
   if (!state.path) return;
-  const text = $("editor").value;
+  const text = cm.getValue();
   const res = await api("/file?path=" + encodeURIComponent(state.path), { method: "PUT", body: text });
   state.saved = text;
   updateBar();
@@ -344,15 +368,7 @@ function showView(v) {
 
 // ---------------------------------------------------------------- wiring
 
-$("editor").addEventListener("input", updateBar);
-$("editor").addEventListener("keydown", (e) => {
-  if (e.key === "Tab") {
-    e.preventDefault();
-    const t = e.target, s = t.selectionStart;
-    t.setRangeText("  ", s, t.selectionEnd, "end");
-    updateBar();
-  }
-});
+cm.on("changes", updateBar);
 document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save().catch((err) => alert(err.message)); }
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !$("run").disabled) startRun().catch((err) => alert(err.message));
