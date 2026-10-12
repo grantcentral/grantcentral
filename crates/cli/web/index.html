@@ -209,6 +209,31 @@ async function save() {
   await loadProject();
 }
 
+async function refresh() {
+  await loadProject();
+  if (!state.path || dirty()) return;
+  const text = await api("/file?path=" + encodeURIComponent(state.path));
+  // Never clobber edits made while the request was in flight.
+  if (text === state.saved || dirty()) return;
+  const cursor = cm.getCursor();
+  state.saved = text;
+  cm.setValue(text);
+  cm.setCursor(cursor);
+  updateBar();
+}
+
+// Follows the server's file watcher so edits made in another editor show up live.
+async function watch() {
+  let version = 0;
+  for (;;) {
+    try {
+      const r = await api("/changes?after=" + version);
+      if (version && r.version !== version) await refresh().catch(() => {});
+      version = r.version;
+    } catch { await new Promise((ok) => setTimeout(ok, 2000)); }
+  }
+}
+
 function showDiags(diags) {
   const box = $("diags");
   box.replaceChildren(...(diags || []).map((d) => el("pre", {}, d.message)));
@@ -382,7 +407,7 @@ $("tab-git").onclick = () => showView("git");
 if (!token) {
   document.body.replaceChildren(el("div", { class: "empty" }, "Open the URL printed by ", el("code", {}, "grantcentral serve"), " (it carries an access token)."));
 } else {
-  loadProject().then(renderRun).catch((e) => { $("panel").replaceChildren(el("pre", { class: "fail" }, e.message)); });
+  loadProject().then(() => { renderRun(); watch(); }).catch((e) => { $("panel").replaceChildren(el("pre", { class: "fail" }, e.message)); });
 }
 </script>
 </body>

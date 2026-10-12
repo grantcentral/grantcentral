@@ -17,6 +17,8 @@ use grantcentral_core::{Project, git};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{Notify, mpsc::UnboundedSender};
@@ -37,6 +39,8 @@ struct App {
     token: String,
     port: u16,
     runs: Mutex<HashMap<String, RunState>>,
+    /// Bumped whenever a project file is added, removed or modified on disk.
+    files_version: AtomicUsize,
     changed: Notify,
 }
 
@@ -63,11 +67,21 @@ pub async fn serve(project: Project, port: u16, open_browser: bool) -> Result<()
     let port = listener.local_addr()?.port();
     let token = random_token();
     let name = project.name();
-    let app = Arc::new(App { project, token: token.clone(), port, runs: Mutex::new(HashMap::new()), changed: Notify::new() });
+    let app = Arc::new(App {
+        project,
+        token: token.clone(),
+        port,
+        runs: Mutex::new(HashMap::new()),
+        files_version: AtomicUsize::new(1),
+        changed: Notify::new(),
+    });
+    let watcher = app.clone();
+    std::thread::spawn(move || watch_files(&watcher));
     let api = Router::new()
         .route("/project", get(project_info))
         .route("/file", get(read_file).put(write_file))
         .route("/validate", get(validate))
+        .route("/changes", get(changes))
         .route("/runs", post(start_run))
         .route("/runs/{id}/events", get(run_events))
         .route("/runs/{id}/input", post(run_input))
@@ -155,6 +169,42 @@ async fn write_file(State(app): St, Query(q): Query<PathQuery>, body: String) ->
 
 async fn validate(State(app): St) -> Json<Value> {
     Json(json!({ "diagnostics": app.project.validate() }))
+}
+
+// ponytail: polls instead of OS file events (no extra dependency, and inotify misses
+// edits on WSL's /mnt drives); switch to the `notify` crate if projects get large.
+fn watch_files(app: &App) {
+    let mut last = fingerprint(&app.project);
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+        let now = fingerprint(&app.project);
+        if now != last {
+            last = now;
+            app.files_version.fetch_add(1, Ordering::Relaxed);
+            app.changed.notify_waiters();
+        }
+    }
+}
+
+fn fingerprint(p: &Project) -> u64 {
+    let mut h = DefaultHasher::new();
+    for f in p.files() {
+        let meta = std::fs::metadata(p.root.join(&f)).ok();
+        (f, meta.map(|m| (m.len(), m.modified().ok()))).hash(&mut h);
+    }
+    h.finish()
+}
+
+/// Long poll: returns the files version as soon as it differs from `after`, or after 25s.
+async fn changes(State(app): St, Query(q): Query<After>) -> Json<Value> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(25);
+    loop {
+        let notified = app.changed.notified();
+        let version = app.files_version.load(Ordering::Relaxed);
+        if version != q.after || tokio::time::timeout_at(deadline, notified).await.is_err() {
+            return Json(json!({ "version": version }));
+        }
+    }
 }
 
 #[derive(Deserialize)]

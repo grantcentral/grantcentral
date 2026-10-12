@@ -229,6 +229,10 @@ random token. Every API call must present that token, and requests whose
 rebinding. The local process owns the filesystem, git, the loopback redirect
 listener and the keychain.
 
+The server checks the project files once a second, so files you add, remove or
+edit in another editor show up in the UI right away. An open file reloads only
+if it has no unsaved changes.
+
 ## Git
 
 The web UI shows status and diffs, commit, pull
