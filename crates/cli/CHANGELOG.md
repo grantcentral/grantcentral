@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2](https://git.jirsh.net/grantcentral/grantcentral/compare/v0.0.1...v0.0.2) - 2026-10-12
+
+### Performance
+
+- shrink the release binary
+
+### Other
+
+- tag releases as v{{ version }} in release-plz
+- use an annotated tag in the release steps
+
 ## [0.0.1](https://git.jirsh.net/grantcentral/grantcentral/releases/tag/v0.0.1) - 2026-10-12
 
 ### Other
