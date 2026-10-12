@@ -1,0 +1,16 @@
+[package]
+name = "grantcentral-gui"
+description = "GrantCentral desktop app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+grantcentral-core.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+open.workspace = true
+iced = { version = "0.14", features = ["tokio", "highlighter"] }
+notify = "8"
+rfd = "0.17"

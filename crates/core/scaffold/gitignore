@@ -1,0 +1,3 @@
+# Machine-local overrides, including literal secrets.
+*.local.toml
+.grantcentral/screenshots/

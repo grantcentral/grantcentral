@@ -1,0 +1,35 @@
+[package]
+name = "grantcentral-core"
+description = "Flow engine, file model and OAuth 2.0 protocol implementation for GrantCentral"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["chromium"]
+# Headless Chromium login driver for CI pipelines.
+chromium = ["dep:chromiumoxide"]
+# Build OpenSSL from source (for static release builds).
+vendored-openssl = ["josekit/vendored"]
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+open.workspace = true
+base64 = "0.22"
+chromiumoxide = { version = "0.9", optional = true }
+futures = "0.3"
+josekit = "0.10"
+keyring = "4"
+minijinja = { version = "3", features = ["serde", "json", "builtins", "urlencode"] }
+openssl = "0.10"
+reqwest = { version = "0.13", features = ["json", "form", "cookies"] }
+schemars = "1"
+toml = "1"
+url = "2"
+
+[dev-dependencies]
+wiremock = "0.6"

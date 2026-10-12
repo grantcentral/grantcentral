@@ -1,0 +1,26 @@
+name = "Device authorization grant (RFC 8628, RFC 10027)"
+tags = ["chromium"]
+
+[client]
+client_id = "gc-public"
+scope = "openid offline_access"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "device"
+login = "chromium"
+login_script = [
+  { click = "button[autofocus]" },
+  { fill = "#username", value = "bob" },
+  { fill = "#password", value = "{{ secrets.password }}" },
+  { click = "#submit" },
+]
+assert = ["body.access_token", "device.body.user_code", "claims.id_token.sub == 'bob'"]
+
+[[steps]]
+name = "a redeemed device code cannot be reused"
+type = "token"
+grant_type = "device_code"
+expect = "error"

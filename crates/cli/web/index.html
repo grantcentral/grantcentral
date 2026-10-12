@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GrantCentral</title>
+<style>
+:root {
+  --bg: #f7f7f8; --panel: #ffffff; --text: #1d1f23; --muted: #646a73; --border: #dfe1e5;
+  --accent: #3657d6; --accent-text: #ffffff; --pass: #1d7f3e; --fail: #c4302b; --warn: #a76200; --code: #f1f2f4;
+  --sel: #e8edff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a; --panel: #1d2024; --text: #e6e8eb; --muted: #9aa1ab; --border: #31353b;
+    --accent: #7d98ff; --accent-text: #0e1116; --pass: #52c27a; --fail: #ff6b63; --warn: #f0b04a; --code: #24282d;
+    --sel: #263155;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, select, input, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+button { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+select, input[type=text] { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+code, pre, textarea.editor { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; font-size: 13px; }
+pre { background: var(--code); padding: 8px; border-radius: 6px; overflow: auto; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
+header { display: flex; gap: 12px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0; }
+header .sp { flex: 1; }
+main { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1fr); height: calc(100% - 49px); }
+aside, section { overflow: auto; border-right: 1px solid var(--border); }
+aside { padding: 8px; background: var(--panel); }
+aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 12px 4px 4px; }
+.item { padding: 3px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item:hover { background: var(--sel); }
+.item.active { background: var(--sel); font-weight: 600; }
+.editor-pane { display: flex; flex-direction: column; }
+.bar { display: flex; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); }
+.bar .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+textarea.editor { flex: 1; width: 100%; border: 0; resize: none; padding: 12px; background: var(--panel); outline: none; tab-size: 2; }
+.diags { border-top: 1px solid var(--border); max-height: 30%; overflow: auto; }
+.diags pre { color: var(--fail); }
+.results { padding: 8px 12px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button.on { border-color: var(--accent); color: var(--accent); }
+.muted { color: var(--muted); }
+.pass { color: var(--pass); } .fail { color: var(--fail); } .warn { color: var(--warn); }
+.step { border: 1px solid var(--border); border-radius: 6px; margin: 6px 0; background: var(--panel); }
+.step > .head { display: flex; gap: 8px; padding: 6px 8px; cursor: pointer; align-items: baseline; }
+.step > .head .t { flex: 1; }
+.step > .body { padding: 0 10px 8px; display: none; }
+.step.open > .body { display: block; }
+.notice, .prompt { border: 1px solid var(--accent); border-radius: 6px; padding: 8px; margin: 6px 0; background: var(--panel); word-break: break-all; }
+.prompt input { width: 100%; margin: 6px 0; }
+table { border-collapse: collapse; width: 100%; }
+td { border-top: 1px solid var(--border); padding: 3px 6px; vertical-align: top; }
+details { margin: 4px 0; }
+summary { cursor: pointer; }
+.diff .add { color: var(--pass); } .diff .del { color: var(--fail); } .diff .hunk { color: var(--accent); }
+.summary { font-weight: 600; margin: 6px 0; }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; height: auto; }
+  aside, section { border-right: 0; border-bottom: 1px solid var(--border); }
+  textarea.editor { min-height: 50vh; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="project">GrantCentral</h1>
+  <label>Environment <select id="env"></select></label>
+  <span class="sp"></span>
+  <div class="tabs"><button id="tab-run" class="on">Run</button><button id="tab-git" hidden>Git</button></div>
+</header>
+<main>
+  <aside>
+    <h2>Flows</h2><div id="flows"></div>
+    <h2>Files</h2><div id="files"></div>
+  </aside>
+  <section class="editor-pane">
+    <div class="bar">
+      <span class="name" id="filename">No file open</span>
+      <button id="save" disabled>Save</button>
+      <button id="run" class="primary" disabled>Run</button>
+    </div>
+    <textarea class="editor" id="editor" spellcheck="false" disabled placeholder="Select a flow or file"></textarea>
+    <div class="diags" id="diags"></div>
+  </section>
+  <section class="results" id="panel"></section>
+</main>
+<script>
+"use strict";
+// The token comes in the URL fragment (never sent to the server in requests for the page).
+const hashToken = new URLSearchParams(location.hash.slice(1)).get("token");
+if (hashToken) {
+  try { sessionStorage.setItem("gc-token", hashToken); } catch {}
+  history.replaceState(null, "", location.pathname);
+}
+let token = hashToken;
+try { token = token || sessionStorage.getItem("gc-token"); } catch {}
+
+const $ = (id) => document.getElementById(id);
+/** Builds DOM nodes; strings become text nodes, so server data is never parsed as HTML. */
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+  }
+  setChildren(n, ...children);
+  return n;
+}
+/** replaceChildren that flattens arrays and skips null/false. */
+function setChildren(n, ...children) {
+  n.replaceChildren(...children.flat(Infinity).filter((c) => c != null && c !== false).map((c) => (c instanceof Node ? c : String(c))));
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch("/api" + path, { ...opts, headers: { Authorization: "Bearer " + token, ...(opts.headers || {}) } });
+  if (!r.ok) {
+    let msg = r.statusText;
+    try { msg = (await r.json()).error || msg; } catch {}
+    throw new Error(msg);
+  }
+  if (r.status === 204) return null;
+  return (r.headers.get("content-type") || "").includes("json") ? r.json() : r.text();
+}
+
+const state = { project: null, path: null, saved: "", view: "run", run: null, git: null, diff: null, gitOut: "" };
+
+function dirty() { return state.path && $("editor").value !== state.saved; }
+
+async function loadProject() {
+  const p = await api("/project");
+  state.project = p;
+  $("project").textContent = p.name;
+  document.title = p.name + " · GrantCentral";
+  const env = $("env");
+  const current = env.value || p.default_environment;
+  env.replaceChildren(...p.environments.map((e) => el("option", { value: e, selected: e === current }, e)));
+  $("tab-git").hidden = !p.git;
+  renderLists();
+}
+
+function renderLists() {
+  const p = state.project;
+  const item = (path, label) => el("div", { class: "item" + (path === state.path ? " active" : ""), title: path, onclick: () => openFile(path) }, label);
+  $("flows").replaceChildren(...(p.flows.length ? p.flows.map((f) => item(f, f.replace(/^flows\//, ""))) : [el("div", { class: "muted" }, "No flows")]));
+  $("files").replaceChildren(...p.files.filter((f) => !p.flows.includes(f)).map((f) => item(f, f)));
+}
+
+async function openFile(path) {
+  if (dirty() && !confirm("Discard unsaved changes to " + state.path + "?")) return;
+  const text = await api("/file?path=" + encodeURIComponent(path));
+  state.path = path;
+  state.saved = text;
+  const ed = $("editor");
+  ed.value = text;
+  ed.disabled = false;
+  updateBar();
+  renderLists();
+  showDiags(null);
+}
+
+function updateBar() {
+  $("filename").textContent = state.path ? state.path + (dirty() ? " •" : "") : "No file open";
+  $("save").disabled = !dirty();
+  $("run").disabled = !state.path || !state.project.flows.includes(state.path) || (state.run && !state.run.done);
+}
+
+async function save() {
+  if (!state.path) return;
+  const text = $("editor").value;
+  const res = await api("/file?path=" + encodeURIComponent(state.path), { method: "PUT", body: text });
+  state.saved = text;
+  updateBar();
+  showDiags(res.diagnostics);
+  await loadProject();
+}
+
+function showDiags(diags) {
+  const box = $("diags");
+  box.replaceChildren(...(diags || []).map((d) => el("pre", {}, d.message)));
+}
+
+// ------------------------------------------------------------------ runs
+
+async function startRun() {
+  if (dirty()) await save();
+  const flow = state.path;
+  const { id } = await api("/runs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ flow, environment: $("env").value || null }) });
+  state.run = { id, flow, steps: [], reports: {}, notices: [], prompt: null, report: null, done: false, open: new Set() };
+  showView("run");
+  updateBar();
+  let after = 0;
+  while (state.run && state.run.id === id && !state.run.done) {
+    try {
+      const r = await api(`/runs/${id}/events?after=${after}`);
+      after = r.next;
+      r.events.forEach(applyEvent);
+      if (r.done) state.run.done = true;
+    } catch (e) {
+      state.run.error = e.message;
+      state.run.done = true;
+    }
+    renderRun();
+    updateBar();
+  }
+}
+
+function applyEvent(ev) {
+  const run = state.run;
+  switch (ev.event) {
+    case "run_started": run.steps = ev.steps.map((name) => ({ name, status: "pending" })); run.title = ev.flow; break;
+    case "step_started": if (run.steps[ev.index]) run.steps[ev.index].status = "running"; break;
+    case "notice": run.notices.push(ev); break;
+    case "prompt": run.prompt = ev; break;
+    case "step_finished": run.reports[ev.report.index] = ev.report; run.steps[ev.report.index].status = ev.report.status; run.prompt = null; if (ev.report.status === "failed") run.open.add(ev.report.index); break;
+    case "run_finished": run.report = ev.report; run.done = true; run.prompt = null; break;
+  }
+}
+
+const mark = { passed: ["✓", "pass"], failed: ["✗", "fail"], skipped: ["–", "muted"], running: ["…", "warn"], pending: ["·", "muted"] };
+
+function pretty(text) {
+  try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
+}
+
+function exchangeView(x) {
+  const hdrs = (h) => h.map(([k, v]) => k + ": " + v).join("\n");
+  return el("details", {},
+    el("summary", {}, el("code", {}, x.method + " " + x.url), " → ", el("span", { class: x.status >= 400 || x.error ? "fail" : "pass" }, x.error ? "error" : String(x.status)), el("span", { class: "muted" }, ` ${x.duration_ms}ms`)),
+    x.error ? el("pre", { class: "fail" }, x.error) : null,
+    el("div", { class: "muted" }, "Request"), el("pre", {}, hdrs(x.request_headers) + (x.request_body ? "\n\n" + pretty(x.request_body) : "")),
+    el("div", { class: "muted" }, "Response"), el("pre", {}, hdrs(x.response_headers) + "\n\n" + pretty(x.response_body)));
+}
+
+function stepBody(r) {
+  const sev = { error: "fail", warning: "warn", info: "muted" };
+  return [
+    r.failure ? el("pre", { class: "fail" }, r.failure) : null,
+    r.checks.length ? el("details", { open: r.checks.some((c) => !c.passed && c.severity !== "info") }, el("summary", {}, `Checks (${r.checks.filter((c) => c.passed).length}/${r.checks.length})`),
+      el("table", {}, r.checks.map((c) => el("tr", {},
+        el("td", { class: c.passed ? "pass" : sev[c.severity] }, c.passed ? "✓" : c.severity),
+        el("td", {}, c.name, c.detail ? el("div", { class: "muted" }, c.detail) : null),
+        el("td", { class: "muted" }, c.spec || ""))))) : null,
+    r.assertions.length ? el("details", { open: r.assertions.some((a) => !a.passed) }, el("summary", {}, "Assertions"),
+      el("table", {}, r.assertions.map((a) => el("tr", {}, el("td", { class: a.passed ? "pass" : "fail" }, a.passed ? "✓" : "✗"), el("td", {}, el("code", {}, a.expr), a.message ? el("div", { class: "fail" }, a.message) : null))))) : null,
+    r.logs.length ? el("details", {}, el("summary", {}, "Logs"), el("pre", {}, r.logs.join("\n"))) : null,
+    r.exchanges.length ? el("details", { open: r.status === "failed" }, el("summary", {}, `HTTP (${r.exchanges.length})`), r.exchanges.map(exchangeView)) : null,
+    el("details", {}, el("summary", {}, "Result document"), el("pre", {}, JSON.stringify(r.result, null, 2))),
+  ];
+}
+
+function renderRun() {
+  if (state.view !== "run") return;
+  const run = state.run;
+  const panel = $("panel");
+  if (!run) { panel.replaceChildren(el("div", { class: "empty" }, "Open a flow and press Run.")); return; }
+  const report = run.report;
+  const counts = report ? report.steps.reduce((a, s) => (a[s.status]++, a), { passed: 0, failed: 0, skipped: 0 }) : null;
+  setChildren(panel,
+    el("div", { class: "bar" },
+      el("span", { class: "name" }, run.title || run.flow),
+      run.done ? null : el("button", { onclick: () => api(`/runs/${run.id}/cancel`, { method: "POST" }) }, "Cancel")),
+    report ? el("div", { class: "summary " + (report.passed ? "pass" : "fail") },
+      `${report.passed ? "PASSED" : "FAILED"}: ${counts.passed} passed, ${counts.failed} failed, ${counts.skipped} skipped, ${report.duration_ms}ms`) : null,
+    report && report.error ? el("pre", { class: "fail" }, report.error) : null,
+    run.error ? el("pre", { class: "fail" }, run.error) : null,
+    run.notices.map((n) => el("div", { class: "notice" }, n.message, " ", n.url ? el("a", { href: n.url, target: "_blank", rel: "noopener noreferrer" }, n.url) : null)),
+    run.prompt ? promptView(run) : null,
+    run.steps.map((s, i) => {
+      const r = run.reports[i];
+      const [m, cls] = mark[s.status] || mark.pending;
+      return el("div", { class: "step" + (run.open.has(i) ? " open" : "") },
+        el("div", { class: "head", onclick: () => { run.open.has(i) ? run.open.delete(i) : run.open.add(i); renderRun(); } },
+          el("span", { class: cls }, m), el("span", { class: "t" }, s.name), r ? el("span", { class: "muted" }, `${r.kind} · ${r.duration_ms}ms`) : null),
+        r ? el("div", { class: "body" }, stepBody(r)) : null);
+    }));
+}
+
+function promptView(run) {
+  const input = el("input", { type: "text", placeholder: "Paste the redirect URL", autofocus: true });
+  const submit = async () => { if (input.value.trim()) { await api(`/runs/${run.id}/input`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: input.value.trim() }) }); run.prompt = null; renderRun(); } };
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  return el("div", { class: "prompt" }, run.prompt.message,
+    run.prompt.url ? el("div", {}, el("a", { href: run.prompt.url, target: "_blank", rel: "noopener noreferrer" }, "Open the authorization URL")) : null,
+    input, el("button", { class: "primary", onclick: submit }, "Submit"));
+}
+
+// ------------------------------------------------------------------- git
+
+async function loadGit() {
+  try { state.git = await api("/git/status"); } catch (e) { state.gitOut = e.message; }
+  renderGit();
+}
+
+async function gitAction(name, body) {
+  state.gitOut = "…";
+  renderGit();
+  try {
+    const r = await api("/git/" + name, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    state.gitOut = (r && r.output) || "done";
+  } catch (e) { state.gitOut = e.message; }
+  await loadGit();
+  await loadProject();
+}
+
+async function showDiff(path) {
+  state.diff = { path, text: await api("/git/diff?path=" + encodeURIComponent(path)) };
+  renderGit();
+}
+
+function renderGit() {
+  if (state.view !== "git") return;
+  const g = state.git;
+  const msg = el("input", { type: "text", placeholder: "Commit message", style: "flex:1" });
+  const lines = (state.diff ? state.diff.text : "").split("\n").map((l) =>
+    el("div", { class: l.startsWith("+") && !l.startsWith("+++") ? "add" : l.startsWith("-") && !l.startsWith("---") ? "del" : l.startsWith("@@") ? "hunk" : "" }, l || " "));
+  setChildren($("panel"),
+    el("div", { class: "bar" },
+      el("span", { class: "name" }, g ? `${g.branch || "?"}${g.upstream ? " → " + g.upstream : ""}  ↑${g.ahead} ↓${g.behind}` : "Git"),
+      el("button", { onclick: loadGit }, "Refresh"), el("button", { onclick: () => gitAction("pull") }, "Pull"), el("button", { onclick: () => gitAction("push") }, "Push")),
+    el("div", { class: "bar" }, msg, el("button", { class: "primary", onclick: () => gitAction("commit", { message: msg.value, paths: [] }) }, "Commit all")),
+    state.gitOut ? el("pre", {}, state.gitOut) : null,
+    g && g.files.length ? el("table", {}, g.files.map((f) => el("tr", { class: "item", onclick: () => showDiff(f.path) }, el("td", {}, el("code", {}, f.code)), el("td", {}, f.path))))
+      : el("div", { class: "muted" }, "Working tree clean"),
+    state.diff ? el("pre", { class: "diff" }, el("div", { class: "muted" }, state.diff.path), lines) : null);
+}
+
+function showView(v) {
+  state.view = v;
+  $("tab-run").classList.toggle("on", v === "run");
+  $("tab-git").classList.toggle("on", v === "git");
+  if (v === "git") loadGit(); else renderRun();
+}
+
+// ---------------------------------------------------------------- wiring
+
+$("editor").addEventListener("input", updateBar);
+$("editor").addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.setRangeText("  ", s, t.selectionEnd, "end");
+    updateBar();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save().catch((err) => alert(err.message)); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !$("run").disabled) startRun().catch((err) => alert(err.message));
+});
+window.addEventListener("beforeunload", (e) => { if (dirty()) e.preventDefault(); });
+$("save").onclick = () => save().catch((e) => alert(e.message));
+$("run").onclick = () => startRun().catch((e) => alert(e.message));
+$("tab-run").onclick = () => showView("run");
+$("tab-git").onclick = () => showView("git");
+
+if (!token) {
+  document.body.replaceChildren(el("div", { class: "empty" }, "Open the URL printed by ", el("code", {}, "grantcentral serve"), " (it carries an access token)."));
+} else {
+  loadProject().then(renderRun).catch((e) => { $("panel").replaceChildren(el("pre", { class: "fail" }, e.message)); });
+}
+</script>
+</body>
+</html>

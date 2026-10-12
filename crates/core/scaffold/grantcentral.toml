@@ -1,0 +1,3 @@
+#:schema ./.grantcentral/schema/project.json
+name = "My authorization server tests"
+default_environment = "dev"

@@ -1,0 +1,12 @@
+{
+  "name": "grantcentral-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Local OpenID Provider (node-oidc-provider) that the end-to-end flows run against",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "oidc-provider": "^9.12.2"
+  }
+}

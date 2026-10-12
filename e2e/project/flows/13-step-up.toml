@@ -1,0 +1,48 @@
+name = "Step-up authentication challenge (RFC 9470) and resource metadata (RFC 9728)"
+
+[client]
+client_id = "gc-confidential"
+client_secret = "{{ secrets.confidential_secret }}"
+redirect_uri = "http://127.0.0.1:8765/callback"
+scope = "openid api:read"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "token"
+grant_type = "client_credentials"
+
+[[steps]]
+id = "api"
+name = "sensitive resource demands a recent login"
+type = "request"
+url = "{{ api }}/sensitive"
+expect = "error"
+assert = [
+  "challenge.params.error == 'insufficient_user_authentication'",
+  "step_up.max_age == '30'",
+  "resource_metadata_url",
+]
+
+[[steps]]
+type = "discover_resource"
+resource = "{{ api }}"
+url = "{{ steps.api.resource_metadata_url }}"
+
+[[steps]]
+type = "authorize"
+login = "http"
+login_hint = "auto"
+max_age = "{{ steps.api.step_up.max_age }}"
+resource = ["{{ api }}"]
+
+[[steps]]
+type = "token"
+resource = ["{{ api }}"]
+
+[[steps]]
+name = "the fresh login satisfies the resource"
+type = "request"
+url = "{{ api }}/sensitive"
+assert = ["status == 200"]

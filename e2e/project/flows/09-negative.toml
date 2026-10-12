@@ -1,0 +1,57 @@
+name = "Negative tests: PKCE, code reuse, redirect URI matching (RFC 9700)"
+tags = ["security"]
+
+[client]
+client_id = "gc-public"
+redirect_uri = "http://127.0.0.1/callback"
+scope = "openid"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+name = "authorization without PKCE is rejected"
+type = "authorize"
+pkce = "none"
+login = "http"
+login_hint = "auto"
+expect = "error"
+assert = ["callback.error == 'invalid_request'"]
+
+[[steps]]
+id = "auth"
+type = "authorize"
+login = "http"
+login_hint = "auto"
+
+[[steps]]
+name = "a wrong PKCE verifier is rejected"
+type = "token"
+code_verifier = "wrong-verifier-wrong-verifier-wrong-verifier-123"
+expect = "error"
+assert = ["body.error == 'invalid_grant'"]
+
+[[steps]]
+id = "auth2"
+type = "authorize"
+login = "http"
+login_hint = "auto"
+
+[[steps]]
+type = "token"
+
+[[steps]]
+name = "authorization code reuse is rejected"
+type = "token"
+grant_type = "authorization_code"
+code = "{{ steps.auth2.callback.code }}"
+expect = "error"
+assert = ["body.error == 'invalid_grant'"]
+
+[[steps]]
+name = "an unregistered redirect URI gets no redirect"
+type = "authorize"
+redirect_uri = "http://127.0.0.1/evil"
+login = "http"
+login_hint = "auto"
+expect = "error"

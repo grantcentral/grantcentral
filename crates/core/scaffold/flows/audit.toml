@@ -1,0 +1,10 @@
+#:schema ../.grantcentral/schema/flow.json
+name = "Metadata audit"
+description = "Checks the server metadata against RFC 9700, RFC 9207, RFC 10017 and related specs."
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "audit"
+profile = "confidential"   # or "browser" (RFC 10017) or "native" (RFC 8252)

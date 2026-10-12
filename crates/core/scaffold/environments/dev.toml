@@ -1,0 +1,20 @@
+#:schema ../.grantcentral/schema/environment.json
+# Settings for the "dev" environment. Commit this file; put literal secrets
+# in dev.local.toml, which git ignores.
+
+[vars]
+issuer = "https://idp.example.com"
+client_id = "grantcentral-dev"
+
+[secrets]
+# Resolved at run time: an environment variable in CI, the OS keychain on a desktop.
+client_secret = { env = "GC_DEV_CLIENT_SECRET" }
+# client_secret = { keyring = "dev/client_secret" }  # store it with: grantcentral secret set dev/client_secret
+
+[client]
+issuer = "{{ issuer }}"
+client_id = "{{ client_id }}"
+client_secret = "{{ secrets.client_secret }}"
+# A loopback redirect without a port gets a free one per run (RFC 8252 §7.3).
+redirect_uri = "http://127.0.0.1/callback"
+scope = "openid profile"

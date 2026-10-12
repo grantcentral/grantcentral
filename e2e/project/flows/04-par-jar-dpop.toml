@@ -1,0 +1,48 @@
+name = "PAR + signed request object + DPoP + private_key_jwt + JWT access token (RFC 9126, 9101, 9449, 7523, 9068)"
+
+[client]
+client_id = "gc-pkjwt"
+auth_method = "private_key_jwt"
+signing_key = "keys/client.private.jwk.json"
+redirect_uri = "http://127.0.0.1:8767/callback"
+scope = "openid offline_access api:read"
+dpop = true
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "authorize"
+par = true
+request_object = "signed"
+resource = ["{{ api }}"]
+login = "http"
+login_hint = "auto"
+assert = ["par.status == 201", "request_object.header.typ == 'oauth-authz-req+jwt'", "request_object.claims.aud == issuer"]
+
+[[steps]]
+id = "tok"
+type = "token"
+resource = ["{{ api }}"]
+validate_access_token = true
+assert = ["body.token_type == 'DPoP'", "claims.access_token.cnf.jkt == session.dpop_jkt", "claims.access_token.aud == api"]
+
+[[steps]]
+type = "request"
+url = "{{ api }}/hello"
+assert = ["status == 200", "body.ok"]
+
+[[steps]]
+name = "DPoP-bound token sent as a bearer token is rejected"
+type = "request"
+url = "{{ api }}/hello"
+auth = "bearer"
+expect = "error"
+assert = ["status == 401"]
+
+[[steps]]
+name = "refresh with the same DPoP key"
+type = "token"
+grant_type = "refresh_token"
+resource = ["{{ api }}"]
+assert = ["body.token_type == 'DPoP'"]

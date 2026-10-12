@@ -1,0 +1,19 @@
+name = "Token exchange (RFC 8693)"
+
+[client]
+client_id = "gc-confidential"
+client_secret = "{{ secrets.confidential_secret }}"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+id = "cc"
+type = "token"
+grant_type = "client_credentials"
+
+[[steps]]
+type = "token"
+grant_type = "token_exchange"
+subject_token = "{{ steps.cc.body.access_token }}"
+assert = ["body.issued_token_type == 'urn:ietf:params:oauth:token-type:access_token'", "body.access_token != steps.cc.body.access_token"]

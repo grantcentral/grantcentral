@@ -1,0 +1,32 @@
+name = "Hybrid flow and form_post response mode (OpenID Connect Core §3.3)"
+
+[client]
+client_id = "gc-hybrid"
+client_secret = "{{ secrets.confidential_secret }}"
+redirect_uri = "http://127.0.0.1:8769/callback"
+scope = "openid"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+name = "code id_token in the fragment"
+type = "authorize"
+response_type = "code id_token"
+login = "http"
+login_hint = "auto"
+assert = ["callback.id_token", "claims.id_token.c_hash"]
+
+[[steps]]
+type = "token"
+
+[[steps]]
+name = "code via form_post"
+type = "authorize"
+response_mode = "form_post"
+login = "http"
+login_hint = "auto"
+assert = ["callback.code"]
+
+[[steps]]
+type = "token"
