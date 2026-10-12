@@ -6,4 +6,5 @@ changelog_update = false
 
 [[package]]
 name = "grantcentral"
+git_tag_name = "v{{ version }}"
 changelog_include = ["grantcentral-core"]

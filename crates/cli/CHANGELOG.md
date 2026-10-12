@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.1](https://git.jirsh.net/grantcentral/grantcentral/releases/tag/grantcentral-v0.0.1) - 2026-10-12
+## [0.0.1](https://git.jirsh.net/grantcentral/grantcentral/releases/tag/v0.0.1) - 2026-10-12
 
 ### Other
 
