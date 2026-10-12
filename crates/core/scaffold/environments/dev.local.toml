@@ -1,0 +1,5 @@
+#:schema ../.grantcentral/schema/environment.json
+# Overrides for this machine only (git-ignored). Literal secrets are fine here.
+
+[secrets]
+# client_secret = "change-me"

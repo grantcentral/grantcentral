@@ -1,0 +1,41 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - run: cargo build -p grantcentral
+      - run: e2e/run.sh --junit e2e/report.xml
+        env:
+          CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          GRANTCENTRAL_NO_SANDBOX: "true"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            e2e/report.xml
+            e2e/server.log
+            e2e/project/.grantcentral/screenshots/

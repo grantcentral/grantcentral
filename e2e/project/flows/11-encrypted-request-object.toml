@@ -1,0 +1,22 @@
+name = "Encrypted request object (RFC 9101 §6.1)"
+
+[client]
+client_id = "gc-jar-encrypted"
+auth_method = "private_key_jwt"
+signing_key = "keys/client.private.jwk.json"
+redirect_uri = "http://127.0.0.1:8768/callback"
+scope = "openid"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "authorize"
+request_object = "encrypted"
+login = "http"
+login_hint = "auto"
+assert = ["callback.code"]
+
+[[steps]]
+type = "token"
+assert = ["claims.id_token.sub == 'alice'"]

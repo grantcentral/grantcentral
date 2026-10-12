@@ -1,0 +1,9 @@
+# Used locally by `release-plz update` to bump the version and write the changelog.
+# Tagging, publishing and GitHub Releases happen in .github/workflows/release.yml.
+[[package]]
+name = "grantcentral-core"
+changelog_update = false
+
+[[package]]
+name = "grantcentral"
+changelog_include = ["grantcentral-core"]

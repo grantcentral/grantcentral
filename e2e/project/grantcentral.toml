@@ -1,0 +1,2 @@
+name = "GrantCentral end-to-end suite"
+default_environment = "local"

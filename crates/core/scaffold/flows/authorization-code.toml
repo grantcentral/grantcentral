@@ -1,0 +1,32 @@
+#:schema ../.grantcentral/schema/flow.json
+name = "Authorization code with PKCE"
+description = "Discover, log in through the browser, redeem the code, call UserInfo and refresh."
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+id = "login"
+type = "authorize"
+# In CI, run with `--login chromium` and script the login page:
+# login_script = [
+#   { fill = "#username", value = "{{ username }}" },
+#   { fill = "#password", value = "{{ secrets.password }}" },
+#   { click = "button[type=submit]" },
+#   { click = "#approve", optional = true },
+# ]
+
+[[steps]]
+id = "token"
+type = "token"
+assert = ["status == 200", "body.expires_in > 0"]
+
+[[steps]]
+type = "userinfo"
+assert = ["body.sub == steps.token.claims.id_token.sub"]
+
+[[steps]]
+type = "token"
+name = "refresh"
+grant_type = "refresh_token"
+when = "session.refresh_token"

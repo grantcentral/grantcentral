@@ -1,0 +1,24 @@
+name = "Rich authorization requests (RFC 9396) over PAR"
+
+[client]
+client_id = "gc-confidential"
+client_secret = "{{ secrets.confidential_secret }}"
+redirect_uri = "http://127.0.0.1:8765/callback"
+scope = "openid"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "authorize"
+par = true
+# This server ties authorization details to a resource indicator (RFC 8707).
+resource = ["{{ api }}"]
+login = "http"
+login_hint = "auto"
+authorization_details = [{ type = "payment_initiation", creditorName = "Merchant A", instructedAmount = { currency = "EUR", amount = "123.50" } }]
+
+[[steps]]
+type = "token"
+resource = ["{{ api }}"]
+assert = ["body.authorization_details[0].type == 'payment_initiation'", "body.authorization_details[0].instructedAmount.amount == '123.50'"]

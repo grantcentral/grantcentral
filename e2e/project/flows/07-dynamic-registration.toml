@@ -1,0 +1,36 @@
+name = "Dynamic client registration and management (RFC 7591, RFC 7592)"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+type = "register"
+metadata = { client_name = "GrantCentral e2e", grant_types = ["client_credentials"], response_types = [], redirect_uris = [], token_endpoint_auth_method = "client_secret_post" }
+assert = ["status == 201", "body.client_id", "body.registration_access_token"]
+
+[[steps]]
+type = "manage_client"
+action = "read"
+assert = ["body.client_name == 'GrantCentral e2e'"]
+
+[[steps]]
+type = "manage_client"
+action = "update"
+metadata = { client_name = "renamed", grant_types = ["client_credentials"], response_types = [], redirect_uris = [], token_endpoint_auth_method = "client_secret_post" }
+assert = ["body.client_name == 'renamed'"]
+
+[[steps]]
+type = "token"
+grant_type = "client_credentials"
+assert = ["status == 200"]
+
+[[steps]]
+type = "manage_client"
+action = "delete"
+
+[[steps]]
+name = "a deleted client cannot get tokens"
+type = "token"
+grant_type = "client_credentials"
+expect = "error"
+assert = ["body.error == 'invalid_client'"]

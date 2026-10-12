@@ -1,0 +1,13 @@
+# The local oidc-provider from e2e/server.mjs. Keys and secrets in keys/ are
+# test-only values for that throwaway server.
+
+[vars]
+issuer = "http://localhost:3000"
+api = "http://localhost:3000/api"
+
+[secrets]
+confidential_secret = { file = "keys/confidential-secret.txt" }
+password = "pass"
+
+[client]
+issuer = "{{ issuer }}"

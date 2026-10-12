@@ -1,0 +1,21 @@
+name = "Discovery and metadata audit (RFC 8414, RFC 9728)"
+tags = ["smoke"]
+
+[[steps]]
+type = "discover"
+assert = [
+  "status == 200",
+  "body.authorization_response_iss_parameter_supported",
+  "'S256' in body.code_challenge_methods_supported",
+  "body.pushed_authorization_request_endpoint",
+  "session.jwks.keys | length > 0",
+]
+
+[[steps]]
+type = "audit"
+profile = "browser"
+
+[[steps]]
+type = "discover_resource"
+resource = "{{ api }}"
+assert = ["issuer in body.authorization_servers"]

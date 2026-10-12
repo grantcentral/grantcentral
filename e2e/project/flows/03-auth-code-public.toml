@@ -1,0 +1,41 @@
+name = "Authorization code with PKCE for a public native client (RFC 7636, RFC 8252, RFC 9207)"
+tags = ["smoke"]
+
+[client]
+client_id = "gc-public"
+# No port: GrantCentral picks a free one and the server ignores the port (RFC 8252 §7.3).
+redirect_uri = "http://127.0.0.1/callback"
+scope = "openid offline_access profile email"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+id = "auth"
+type = "authorize"
+login = "http"
+login_hint = "auto"
+assert = ["callback.code", "callback.iss == issuer"]
+
+[[steps]]
+id = "tok"
+type = "token"
+assert = ["body.refresh_token", "claims.id_token.sub == 'alice'", "claims.id_token.nonce == session.nonce"]
+
+[[steps]]
+type = "userinfo"
+assert = ["body.email == 'alice@example.test'"]
+
+[[steps]]
+name = "refresh rotates the refresh token"
+type = "token"
+grant_type = "refresh_token"
+assert = ["body.refresh_token != steps.tok.body.refresh_token"]
+
+[[steps]]
+name = "a rotated-out refresh token is rejected (RFC 9700 §4.14)"
+type = "token"
+grant_type = "refresh_token"
+refresh_token = "{{ steps.tok.body.refresh_token }}"
+expect = "error"
+assert = ["body.error == 'invalid_grant'"]

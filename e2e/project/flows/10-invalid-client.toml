@@ -1,0 +1,16 @@
+name = "Client authentication failures (RFC 6749 §5.2)"
+tags = ["security"]
+
+[client]
+client_id = "gc-confidential"
+client_secret = "not-the-secret"
+
+[[steps]]
+type = "discover"
+
+[[steps]]
+name = "a wrong client secret is rejected"
+type = "token"
+grant_type = "client_credentials"
+expect = "error"
+assert = ["status == 401", "body.error == 'invalid_client'"]
