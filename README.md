@@ -28,7 +28,30 @@ cargo build --release -p grantcentral      # CLI and web UI only (CI images)
 ```
 
 Use `--features grantcentral-core/vendored-openssl` to compile OpenSSL from
-source for static release builds.
+source for static release builds. On Windows and macOS OpenSSL is always built
+from source (you need `perl` and a C compiler).
+
+### Cross-compiling
+
+From Linux to Windows, with MinGW (`apt install mingw-w64`):
+
+```sh
+rustup target add x86_64-pc-windows-gnu
+cargo build --release --target x86_64-pc-windows-gnu
+```
+
+macOS builds need Apple's SDK, which can't be redistributed. Build on a Mac
+(`aarch64-apple-darwin` and `x86_64-apple-darwin` both work from one machine),
+or from Linux with [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild)
+and an SDK you extract yourself:
+
+```sh
+SDKROOT=/path/to/MacOSX.sdk cargo zigbuild --release --target aarch64-apple-darwin
+```
+
+Pushing a `v*` tag (or running the Release workflow by hand) builds Linux,
+Windows and macOS binaries as workflow artifacts. They're unsigned: on macOS,
+clear the quarantine flag with `xattr -d com.apple.quarantine grantcentral`.
 
 ## Quick start
 

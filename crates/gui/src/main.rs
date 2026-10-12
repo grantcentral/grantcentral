@@ -1,5 +1,6 @@
 //! GrantCentral desktop app: edit a project's TOML files, run flows, and
 //! commit/pull/push the project with git.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod git_view;
 mod run_view;

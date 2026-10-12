@@ -31,5 +31,9 @@ schemars = "1"
 toml = "1"
 url = "2"
 
+# Windows and macOS have no system OpenSSL to link against: build it from source.
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
 [dev-dependencies]
 wiremock = "0.6"
