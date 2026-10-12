@@ -54,7 +54,7 @@ from a tag pushed to Forgejo:
 ```sh
 release-plz update                    # bump the version and CHANGELOG.md from Conventional Commits
 git commit -am "chore: release vX.Y.Z"
-git tag vX.Y.Z && git push --follow-tags
+git tag -a vX.Y.Z -m vX.Y.Z && git push --follow-tags   # --follow-tags skips lightweight tags
 ```
 
 When the tag reaches GitHub, the Release workflow builds Linux, Windows and macOS

@@ -94,7 +94,7 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - Shared dependency versions belong in `[workspace.dependencies]` in the root
   `Cargo.toml`. Prefer existing dependencies over new ones.
 - Rust edition 2024, MSRV 1.88. On Windows and macOS, OpenSSL is always vendored.
-- Commits follow Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `ci:`, `chore:`;
+- Commits follow Conventional Commits (`feat:`, `fix:`, `perf:`, `docs:`, `refactor:`, `ci:`, `chore:`;
   `!` or `BREAKING CHANGE:` for breaking changes). release-plz derives the version bump and
   changelog from them. Don't bump versions or edit `CHANGELOG.md` by hand.
 - Code comments explain *why*, briefly. Doc comments on model types are
