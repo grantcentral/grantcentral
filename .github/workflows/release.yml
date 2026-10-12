@@ -23,7 +23,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev libx11-dev mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -33,6 +33,4 @@ jobs:
           name: grantcentral-${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/grantcentral
-            target/${{ matrix.target }}/release/grantcentral-gui
             target/${{ matrix.target }}/release/grantcentral.exe
-            target/${{ matrix.target }}/release/grantcentral-gui.exe

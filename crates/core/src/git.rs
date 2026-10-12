@@ -27,7 +27,7 @@ fn git(dir: &Path, args: &[&str]) -> Result<String> {
     let out = Command::new("git")
         .args(args)
         .current_dir(dir)
-        // Never block a GUI on a terminal prompt; credential helpers still run.
+        // Never block the web UI on a terminal prompt; credential helpers still run.
         .env("GIT_TERMINAL_PROMPT", "0")
         .output()
         .context("running git (is it installed?)")?;

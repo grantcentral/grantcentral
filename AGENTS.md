@@ -7,13 +7,12 @@ changing behavior, and keep it in sync with your changes.
 ## What this is
 
 GrantCentral is a Rust workspace that tests OAuth 2.0 / OpenID Connect servers.
-Users write flows as TOML files and run them from a CLI, a local web UI, or a
-desktop app. All three share one engine.
+Users write flows as TOML files and run them from a CLI or a local web UI
+(`grantcentral serve`). Both share one engine.
 
 ```
 crates/core   grantcentral-core: file model, flow engine, OAuth/OIDC client. No UI code.
 crates/cli    grantcentral: headless runner, `serve` (axum + crates/cli/web/index.html), JOSE/secret utilities
-crates/gui    grantcentral-gui: iced desktop app
 e2e/          node-oidc-provider test server (server.mjs) + a 14-flow suite in e2e/project/
 ```
 
@@ -31,7 +30,7 @@ e2e/          node-oidc-provider test server (server.mjs) + a 14-flow suite in e
 ```sh
 cargo fmt --all --check                              # CI enforces this (rustfmt.toml: max_width 140)
 cargo clippy --workspace --all-targets -- -D warnings # CI enforces this: no warnings allowed
-cargo test --workspace                               # unit tests, wiremock integration tests (core/tests/grants.rs), GUI tests
+cargo test --workspace                               # unit tests, wiremock integration tests (core/tests/grants.rs)
 cargo build -p grantcentral && e2e/run.sh            # e2e against the local OP (needs Node 22+, openssl)
 CHROME=/path/to/chrome e2e/run.sh                    # also runs the flows tagged `chromium`
 ```
@@ -106,7 +105,5 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - On failure, Chromium logins save screenshots to `.grantcentral/screenshots/` in
   the project directory. CI uploads them as artifacts.
 - In containers or CI, Chromium needs `--no-sandbox` or `GRANTCENTRAL_NO_SANDBOX=true`.
-- Building the GUI on Linux needs `libxkbcommon-dev libwayland-dev libx11-dev`. For
-  CLI-only work, `cargo build -p grantcentral` skips the GUI crate.
 - `redirect_uri` without a port means "pick a free port per run" (RFC 8252 §7.3).
   Don't "fix" it by adding a default port.

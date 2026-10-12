@@ -1,5 +1,5 @@
 //! GrantCentral core: file model, flow engine and the OAuth 2.0 / OpenID
-//! Connect client implementation shared by the CLI, the web UI and the desktop app.
+//! Connect client implementation shared by the CLI and the web UI.
 
 pub mod engine;
 pub mod git;

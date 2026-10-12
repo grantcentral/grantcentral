@@ -1,8 +1,8 @@
 # GrantCentral
 
 GrantCentral tests OAuth 2.0 and OpenID Connect authorization servers. You
-describe flows in TOML files that live in git. You run them from a desktop
-app, from a browser UI served by a local process, or headless in CI. The
+describe flows in TOML files that live in git. You run them from a browser UI
+served by a local process, or headless in CI. The
 same engine runs in every case.
 
 It is a **client**: it drives real authorization and resource servers, checks
@@ -12,19 +12,16 @@ every response against the specs, and is built to send *wrong* requests too
 ```
 crates/core   flow engine, file model, OAuth/OIDC protocol (no UI)
 crates/cli    `grantcentral`: headless runner, `serve` web UI, JOSE utilities
-crates/gui    `grantcentral-gui`: desktop app (iced)
 e2e/          a local OpenID provider and a 14-flow suite that exercises every supported RFC
 ```
 
 ## Build
 
 You need Rust 1.88+ (edition 2024), OpenSSL development headers (`libssl-dev`)
-and git. The desktop app on Linux also needs the usual windowing libraries
-(`libxkbcommon-dev`, `libwayland-dev`, `libx11-dev`).
+and git.
 
 ```sh
-cargo build --release                      # all three crates
-cargo build --release -p grantcentral      # CLI and web UI only (CI images)
+cargo build --release
 ```
 
 Use `--features grantcentral-core/vendored-openssl` to compile OpenSSL from
@@ -61,7 +58,6 @@ $EDITOR environments/dev.toml              # issuer, client_id, ...
 grantcentral secret set dev/client_secret  # OS keychain, or use an env var
 grantcentral run                           # every flow, system browser for logins
 grantcentral serve                         # browser UI on 127.0.0.1
-grantcentral-gui .                         # desktop app
 grantcentral discover https://idp.example.com --profile browser   # metadata audit
 ```
 
@@ -231,16 +227,14 @@ URL-encoded and JSON-escaped forms, and `Authorization: Basic` headers. The
 random token. Every API call must present that token, and requests whose
 `Host` header is not the loopback address are refused, which blocks DNS
 rebinding. The local process owns the filesystem, git, the loopback redirect
-listener and the keychain, so the browser UI has the same features as the
-desktop app.
+listener and the keychain.
 
 ## Git
 
-The desktop app and web UI show status and diffs, commit, pull
-(fast-forward only) and push. They do this by running your installed `git`, so
+The web UI shows status and diffs, commit, pull
+(fast-forward only) and push. It does this by running your installed `git`, so
 SSH keys and credential helpers work as they do in your terminal. Branching
-and conflict resolution are left to your usual git tools. The desktop app
-reloads files that change on disk, for example after a pull.
+and conflict resolution are left to your usual git tools.
 
 ## Specification coverage
 
@@ -287,7 +281,7 @@ objects by reference, and generating signed SAML assertions (supply your own).
 ## Development
 
 ```sh
-cargo test --workspace            # unit, mock-server integration and GUI tests
+cargo test --workspace            # unit and mock-server integration tests
 e2e/run.sh                        # 14 flows against a local oidc-provider (Node 22+, openssl)
 CHROME=/path/to/chrome e2e/run.sh # also the headless-Chromium device flow
 ```
