@@ -89,3 +89,67 @@ becomes an RFC, add 2.1 section citations to the existing checks, plus the few 2
 rules: PKCE required for every client, no bearer tokens in the query string (flag
 `auth = "bearer_query"` in reports, but keep sending it, since negative tests need it), and exact
 redirect URI matching (already covered by e2e 09).
+
+## Multi-arch Alpine image on GHCR
+
+Publish `ghcr.io/<owner>/grantcentral` for `linux/amd64` and `linux/arm64`. Docker on Apple
+Silicon runs `linux/arm64`, so those two platforms cover Linux and macOS hosts. The current
+`Dockerfile` is Debian-based and still installs `libssl3`, which nothing has needed since
+OpenSSL was dropped.
+
+- **Build static musl binaries, not in the Dockerfile.** Add `x86_64-unknown-linux-musl` and
+  `aarch64-unknown-linux-musl` to the release matrix, using the native `ubuntu-24.04-arm` runner
+  for aarch64 rather than QEMU, which is very slow for a release build with LTO. aws-lc-sys,
+  zbus and chromiumoxide are all fine on musl. Attach the tarballs to the GitHub Release as
+  well, since Linux aarch64 has no binary today. Then the Dockerfile only does
+  `COPY --from=<binary> ...` per `TARGETARCH`, and the image build takes seconds.
+- **Two tags, because Chromium dominates the size.** Alpine's `chromium` package is a few
+  hundred MB, while the binary is about 11 MiB.
+  - `:X.Y.Z-slim` / `:slim`: `alpine` + `ca-certificates` + `git` + the binary. reqwest uses the
+    platform verifier, so it needs the CA store.
+  - `:X.Y.Z` / `:latest`: the slim image plus `chromium` and `nss`, with `CHROME=/usr/bin/chromium-browser`
+    and `GRANTCENTRAL_NO_SANDBOX=true`.
+- Run as a non-root user and keep `ENTRYPOINT ["grantcentral"]`. Keep the `/work` volume
+  convention from the current Dockerfile.
+- Publish from the `release` job with `docker/build-push-action` (`platforms: linux/amd64,linux/arm64`,
+  `permissions: packages: write`, `GITHUB_TOKEN`). Pushing an image is not a git ref, so this
+  is compatible with the Forgejo mirror rule. build-push-action adds provenance and an SBOM
+  by default.
+- If musl's allocator turns out to be slow, add mimalloc, but measure first, because the
+  runs are I/O-bound.
+- Known limits, to document instead of fixing:
+  - `login = system` has no browser inside a container.
+  - `serve` binds to the container's `127.0.0.1`, which `-p` can't reach. Making it work
+    would need a bind-address flag, which goes against the web UI's loopback-only rule.
+    That needs a decision first, so the image targets `run` only.
+
+## CI tasks: GitHub Actions and Azure Pipelines
+
+Package a single `grantcentral run ...` invocation with inputs (`args` or `flows`, `env`,
+`login`, `junit`, `json`, `version`) and upload the reports.
+
+**Binary or Docker image? Default to the prebuilt binary, and keep the image as the fallback.**
+
+| | Prebuilt binary | Docker image |
+|---|---|---|
+| Runner OS | Linux, macOS, Windows | Linux only. GitHub `runs.using: docker` actions and Azure container jobs can't run on macOS/Windows agents |
+| Startup | ~11 MiB download, cacheable in the tool cache | pull of 15 MB (slim) to a few hundred MB (Chromium) per job, unless the agent caches it |
+| Chromium | GitHub- and Microsoft-hosted Ubuntu images already ship Chrome; point `CHROME` at it | bundled |
+| Secrets/env | inherits the job environment | every `GC_*` variable has to be passed through with `-e` |
+| Self-hosted agents without Chrome | the user installs Chrome | works out of the box |
+
+- **GitHub Action:** a composite `action.yml` at the repo root, so it can be used as
+  `uses: <owner>/grantcentral@v0`. It downloads the release tarball for `runner.os`/`runner.arch`,
+  verifies a `SHA256SUMS` file (add it to the release job), caches the binary, and sets
+  `CHROME` from `browser-actions/setup-chrome` when the runner has no Chrome. It needs a
+  moving `v0` major tag. That tag has to be pushed to Forgejo, because CI here never pushes
+  tags. Publish it on the Marketplace once it is stable.
+- **Azure Pipelines:** start with a YAML step template (`ci/azure/grantcentral.yml`) consumed
+  through `resources.repositories`. It does the same download/verify/run and publishes the
+  JUnit report with `PublishTestResults@2`. A real Marketplace task (a VSIX built with `tfx`,
+  a publisher account, a Node task runner) takes noticeably more upkeep, so build it only if
+  users ask.
+- Both get a `container: true` (or `image:`) input that runs the GHCR image instead, for
+  self-hosted Linux agents without Chrome.
+- Test the GitHub Action against the e2e suite in `ci.yml`. The Azure template has no CI here,
+  so document it with a sample pipeline.
