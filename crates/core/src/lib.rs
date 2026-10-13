@@ -30,13 +30,13 @@ pub(crate) fn unb64(s: &str) -> anyhow::Result<Vec<u8>> {
 }
 
 pub(crate) fn sha256(data: &[u8]) -> [u8; 32] {
-    openssl::sha::sha256(data)
+    aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, data).as_ref().try_into().expect("SHA-256 is 32 bytes")
 }
 
 /// URL-safe random string from `n` random bytes.
 pub fn random_b64(n: usize) -> String {
     let mut buf = vec![0u8; n];
-    openssl::rand::rand_bytes(&mut buf).expect("OS random number generator");
+    aws_lc_rs::rand::fill(&mut buf).expect("OS random number generator");
     b64(&buf)
 }
 

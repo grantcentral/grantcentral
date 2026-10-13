@@ -16,7 +16,7 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
-          # Cross-compiled with MinGW; OpenSSL is built from source.
+          # Cross-compiled with MinGW.
           - { os: ubuntu-latest, target: x86_64-pc-windows-gnu }
           # macOS needs Apple's SDK, so it builds on a Mac (both arches from one runner).
           - { os: macos-latest, target: aarch64-apple-darwin }
@@ -32,7 +32,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - run: cargo build --release --locked --workspace --target ${{ matrix.target }} --features grantcentral-core/vendored-openssl
+      - run: cargo build --release --locked --workspace --target ${{ matrix.target }}
       - shell: bash
         working-directory: target/${{ matrix.target }}/release
         run: |
@@ -59,7 +59,6 @@ jobs:
       - name: Check the tag matches the workspace version
         run: grep -qx "version = \"${GITHUB_REF_NAME#v}\"" Cargo.toml
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get update && sudo apt-get install -y libssl-dev
       - if: env.HAS_TOKEN != 'true'
         uses: rust-lang/crates-io-auth-action@v1
         id: auth

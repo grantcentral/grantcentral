@@ -128,7 +128,7 @@ pub struct Session {
     /// SHA-256 thumbprint of the mTLS client certificate (RFC 8705).
     pub cert_thumbprint: Option<String>,
     #[serde(skip)]
-    pub dpop_key: Option<josekit::jwk::Jwk>,
+    pub dpop_key: Option<crate::jose::Jwk>,
     /// Latest DPoP nonce per origin.
     #[serde(skip)]
     pub dpop_nonces: HashMap<String, String>,

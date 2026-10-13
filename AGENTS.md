@@ -54,7 +54,8 @@ Without Chrome, the script skips the `chromium`-tagged flows.
   (`jwt`, `b64url`, `sha256`, `now()`, `random(n)`).
 - `login.rs`: user-agent drivers (`system`, `chromium`, `http`, `manual`) and the
   loopback redirect listener. Chromium support sits behind the default `chromium` feature.
-- `jose.rs`: built on josekit. Never accept `alg: none` from a server.
+- `jose.rs`: JWS/JWE/JWK on aws-lc-rs (the same library rustls uses; keep it the only crypto
+  stack). JWKs are plain `serde_json` maps. Never accept `alg: none` from a server.
 - `report.rs`: `RunReport`, checks with `Severity`, and `redacted()`.
 - `project.rs`: project discovery and loading, `init` scaffolding (from
   `core/scaffold/`, embedded with `include_str!`), and environment layering.
@@ -93,7 +94,7 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - CLI exit codes: `0` all flows passed, `1` a flow failed, `2` usage or config error.
 - Shared dependency versions belong in `[workspace.dependencies]` in the root
   `Cargo.toml`. Prefer existing dependencies over new ones.
-- Rust edition 2024, MSRV 1.88. On Windows and macOS, OpenSSL is always vendored.
+- Rust edition 2024, MSRV 1.88. No OpenSSL: aws-lc-sys builds AWS-LC from source with `cc`.
 - Commits follow Conventional Commits (`feat:`, `fix:`, `perf:`, `docs:`, `refactor:`, `ci:`, `chore:`;
   `!` or `BREAKING CHANGE:` for breaking changes). release-plz derives the version bump and
   changelog from them. Don't bump versions or edit `CHANGELOG.md` by hand.

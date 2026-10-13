@@ -17,16 +17,13 @@ e2e/          a local OpenID provider and a 14-flow suite that exercises every s
 
 ## Build
 
-You need Rust 1.88+ (edition 2024), OpenSSL development headers (`libssl-dev`)
-and git.
+You need Rust 1.88+ (edition 2024), a C compiler and git. All cryptography,
+TLS included, comes from [aws-lc-rs](https://github.com/aws/aws-lc-rs), which
+builds AWS-LC from source and links it statically.
 
 ```sh
 cargo build --release
 ```
-
-Use `--features grantcentral-core/vendored-openssl` to compile OpenSSL from
-source for static release builds. On Windows and macOS OpenSSL is always built
-from source (you need `perl` and a C compiler).
 
 ### Cross-compiling
 
@@ -290,7 +287,7 @@ OpenID provider. "it" refers to `crates/core/tests/grants.rs`.
 | RFC 10017 Browser-based apps BCP | `audit --profile browser` (PKCE required, sender-constrained tokens or rotation), refresh rotation checks | e2e 01, 03 |
 | RFC 10027 Cross-device BCP | user code lifetime and entropy checks, device code reuse test | e2e 06 |
 | OpenID Connect Core / Discovery | ID token validation (signature, `iss`, `aud`, `azp`, `exp`, `nonce`, `at_hash`, `c_hash`, `auth_time`), UserInfo (JSON or JWT), `claims`, hybrid flow, `form_post` | e2e 03, 12 |
-| JOSE (RFC 7515–7519, RFC 8725) | via josekit; `alg: none` is never accepted from servers | unit |
+| JOSE (RFC 7515–7519, RFC 8725) | JWS: RS, PS, ES (P-256/384/521), EdDSA (Ed25519), HS. JWE: RSA-OAEP(-256/384/512), ECDH-ES(+A128KW/+A256KW) on P-256/384/521 and X25519, A*GCM and A*CBC-HS*. `alg: none` is never accepted from servers | unit (RFC 7516 A.1, RFC 7518 B.1 and C vectors) |
 
 Not supported yet: JARM, CIBA, FAPI 2.0 profile checks, hosting request
 objects by reference, and generating signed SAML assertions (supply your own).
