@@ -201,7 +201,7 @@ async fn dispatch(cli: Cli) -> Result<ExitCode> {
         }
         Command::Jwk(JwkCommand::Generate { alg, out }) => {
             let key = jose::generate(&alg)?;
-            let private = serde_json::to_string_pretty(key.as_ref())?;
+            let private = serde_json::to_string_pretty(&key)?;
             match &out {
                 Some(p) => write_private(p, &private)?,
                 None => println!("{private}"),

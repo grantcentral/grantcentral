@@ -63,7 +63,7 @@ scope = "read"
 "#,
         server.uri()
     );
-    let (r, _) = run(&flow, &[("key.json", &serde_json::to_string(key.as_ref()).unwrap())]).await;
+    let (r, _) = run(&flow, &[("key.json", &serde_json::to_string(&key).unwrap())]).await;
     assert_passed(&r);
     let reqs = server.received_requests().await.unwrap();
     let f = form(&reqs[0]);
@@ -249,6 +249,6 @@ assert = ["status == 200"]
     assert_eq!(c["htm"], "GET");
     assert_eq!(c["htu"], format!("{}/res", server.uri()), "htu has no query (RFC 9449 §4.2)");
     use base64::Engine as _;
-    let ath = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(openssl::sha::sha256(b"dpop-at"));
+    let ath = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, b"dpop-at"));
     assert_eq!(c["ath"], Value::String(ath));
 }

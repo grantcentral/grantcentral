@@ -174,7 +174,7 @@ fn client_assertion(run: &Run, method: AuthMethod, endpoint: &str) -> Result<Str
     }
 }
 
-pub(crate) fn signing_key(run: &Run) -> Result<josekit::jwk::Jwk> {
+pub(crate) fn signing_key(run: &Run) -> Result<jose::Jwk> {
     let path = run.client.signing_key.as_ref().ok_or_else(|| anyhow!("client.signing_key is not set"))?;
     jose::load_key(&run.path(path))
 }
@@ -224,7 +224,7 @@ pub(crate) fn dpop_proof(run: &mut Run, method: &str, url: &str, access_token: O
     let header = json!({ "typ": "dpop+jwt", "jwk": jose::public(key)? });
     // The key travels in the header, so no `kid`.
     let mut k = key.clone();
-    k.set_parameter("kid", None)?;
+    k.remove("kid");
     jose::sign(&claims, header, &k, run.client.dpop_alg.as_deref())
 }
 
