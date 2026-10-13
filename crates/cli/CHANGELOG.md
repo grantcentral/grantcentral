@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3](https://git.jirsh.net/grantcentral/grantcentral/compare/v0.0.2...v0.0.3) - 2026-10-13
+
+### Other
+
+- [**breaking**] run JOSE on aws-lc-rs and drop OpenSSL
+
 ## [0.0.2](https://git.jirsh.net/grantcentral/grantcentral/compare/v0.0.1...v0.0.2) - 2026-10-12
 
 ### Performance
