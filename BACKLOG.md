@@ -199,3 +199,21 @@ e2e: oidc-provider 9.12 has `features.clientIdMetadataDocument`. It leaves SSRF 
 `allowFetch` hook and doesn't block loopback by itself. `server.mjs` can serve the test
 documents from its existing HTTPS listener (test-only, so that's allowed), with the
 provider trusting the generated CA through `NODE_EXTRA_CA_CERTS`. Then add a README spec row.
+
+## Opt-in diagnostic logging (`tracing-subscriber`)
+
+axum, hyper, reqwest and chromiumoxide already emit `tracing`/`log` events, and today nothing
+shows them. Add `tracing-subscriber` (with `env-filter` and `tracing-log` for the `log`-based
+crates) to the CLI only, to debug the tool itself. The main case is Chromium/CDP failures.
+
+- **Opt-in:** install no subscriber unless `RUST_LOG` is set, so default output stays exactly
+  as it is.
+- Write to stderr, so `--json`/`--junit` output and stdout stay clean.
+- **Unredacted:** these events bypass `RunReport::redacted()`. reqwest logs request URLs at
+  debug level, and they can carry tokens (`auth = "bearer_query"`, `code` in callbacks).
+  Document `RUST_LOG` as a local developer tool, not for CI logs. Print a one-line stderr
+  warning when it is set.
+- `Run::log` stays as it is. Step logs are product output (reports, UI events, redaction), not
+  diagnostics.
+- Core keeps no subscriber. If core needs its own diagnostic events later, add `tracing` macros
+  there (it's already in the tree via axum).
