@@ -153,3 +153,49 @@ Package a single `grantcentral run ...` invocation with inputs (`args` or `flows
   self-hosted Linux agents without Chrome.
 - Test the GitHub Action against the e2e suite in `ci.yml`. The Azure template has no CI here,
   so document it with a sample pipeline.
+
+## CIMD (Client ID Metadata Documents)
+
+[draft-ietf-oauth-client-id-metadata-document-02](https://datatracker.ietf.org/doc/draft-ietf-oauth-client-id-metadata-document/)
+(July 2026, WG draft). The `client_id` is an HTTPS URL, and the AS fetches the client's metadata
+from it instead of using registration. MCP authorization is built on it, so many new
+authorization servers will implement it.
+
+**The happy path probably works today without code changes.** `client_id` is just a string, and
+`auth_method` falls back to `none` without a secret, or to `private_key_jwt` with
+`signing_key` + a `jwks_uri` in the document. Confirm that with an e2e flow before
+building anything.
+
+**Hosting is the user's job, not ours.** The AS must refuse to fetch from special-use IPs
+(§8.6), so a real AS can't fetch a document that GrantCentral serves on loopback. The user
+publishes static JSON (GitHub Pages, S3, ...). That also keeps the "client only" scope
+intact. The only thing worth building for hosting is `grantcentral cimd generate <base-url> <dir>`, which
+writes the valid document plus the negative variants below from `[client]`. Build it if
+writing them by hand turns out to be tedious.
+
+What to test:
+
+- `audit`: `client_id_metadata_document_supported` (Info, §6).
+- **Negative tests that need no hosting.** Send them as PAR requests, so the rejection comes
+  back as JSON instead of an error page that the login drivers can't assert on.
+  - Malformed client_id URLs must be rejected (§3): `http://`, userinfo, no path, `.`/`..`
+    segments (including `%2e`), and a fragment.
+  - SSRF (§8.6): `https://127.0.0.1/c`, `https://[::1]/c`, `https://169.254.169.254/c`, and a
+    hostname that resolves to a private address.
+- **Negative tests that need hosted variants** (§4, §4.1, §5, §8.7):
+  - the document's `client_id` ≠ the URL;
+  - `client_secret`, `client_secret_*` auth methods, or private key material in `jwks`;
+  - `redirect_uri` not listed in the document;
+  - a non-200 status, and a 3xx that the AS must not follow. The 3xx needs a host that can
+    redirect, e.g. Netlify `_redirects`;
+  - a document over 5 KB.
+- `private_key_jwt` with the document's `jwks_uri`: the AS must require the assertion (§8.2).
+- Loopback `redirect_uri` without a port in the document: does the AS apply RFC 8252 §7.3
+  port-agnostic matching? This determines whether our per-run free port works with CIMD at all.
+- Out of scope: cache behavior (§5.2), because it isn't observable from the client without
+  timing games.
+
+e2e: oidc-provider 9.12 has `features.clientIdMetadataDocument`. It leaves SSRF policy to the
+`allowFetch` hook and doesn't block loopback by itself. `server.mjs` can serve the test
+documents from its existing HTTPS listener (test-only, so that's allowed), with the
+provider trusting the generated CA through `NODE_EXTRA_CA_CERTS`. Then add a README spec row.
