@@ -113,3 +113,17 @@ Without Chrome, the script skips the `chromium`-tagged flows.
   from a `v*` tag pushed to Forgejo (see "Releases" in `README.md`).
 - `redirect_uri` without a port means "pick a free port per run" (RFC 8252 §7.3).
   Don't "fix" it by adding a default port.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root, created only when needed. See `docs/agents/domain.md`.
