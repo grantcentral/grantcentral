@@ -23,7 +23,11 @@ Users run it the same way as today:
 docker run --rm -v "$PWD:/work" ghcr.io/<owner>/grantcentral run --login chromium --junit report.xml
 ```
 
-The image targets `grantcentral run` (and the other headless subcommands). `serve` is not supported in the container, and the README says why.
+The image targets `grantcentral run` (and the other headless subcommands). `serve` works too: a new `--bind` flag (or `GRANTCENTRAL_BIND`) moves the web UI off `127.0.0.1`, so `-p` can reach it, and `GRANTCENTRAL_PORT` fixes the port that `-p` publishes:
+
+```
+docker run --rm -v "$PWD:/work" -p 8080:8080 -e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=8080 ghcr.io/<owner>/grantcentral serve --no-open
+```
 
 ## User Stories
 
@@ -47,7 +51,7 @@ The image targets `grantcentral run` (and the other headless subcommands). `serv
 18. As a CI author, I want git in the image, so that flows and projects checked out with git behave as on a workstation.
 19. As a CI author, I want `env` secrets to work in the container, so that I can pass client secrets with `-e GC_...`.
 20. As a CI author, I want the README to tell me that `keyring` secrets and `login = "system"` don't work in a container, so that I don't waste time debugging them.
-21. As a user who tries `serve` in the container, I want the README to explain why the web UI can't be reached through `-p`, so that I understand it is a deliberate loopback-only design and not a bug.
+21. As a user who wants the web UI from the container, I want to set `serve`'s bind address and port with flags or the `GRANTCENTRAL_BIND` and `GRANTCENTRAL_PORT` environment variables, so that `-p` can reach it.
 22. As a supply-chain-conscious user, I want provenance attestations and an SBOM attached to the image, so that I can verify where it came from and what it contains.
 23. As a user browsing GHCR, I want the image linked to the source repository, with its license, description and version labels, so that I can find the code and the changelog.
 24. As a maintainer, I want the image published from the existing tag-driven release workflow, so that releases stay a single `git push --follow-tags` to Forgejo.
@@ -78,6 +82,16 @@ The image targets `grantcentral run` (and the other headless subcommands). `serv
 - Both stages set a world-writable `HOME` (e.g. `/tmp`), so that Chromium and git still work when the container runs as an arbitrary UID via `--user`. GrantCentral already puts the Chromium profile under the temp directory.
 - OCI labels (source, license, description, version, revision) come from the metadata step in the workflow, not from hard-coded `LABEL` lines.
 
+**Web UI bind address**
+
+- `serve` gets `--bind <IP>` with clap's `env = "GRANTCENTRAL_BIND"` and default `127.0.0.1`, the same pattern as `GRANTCENTRAL_PROJECT` and `GRANTCENTRAL_NO_SANDBOX`. It takes an IP address (`std::net::IpAddr`), not a host name. Without the flag, behavior is unchanged.
+- The existing `--port` gets `env = "GRANTCENTRAL_PORT"`. Its default stays `0` (a free port).
+- The token check stays on every API call, whatever the bind address.
+- The Host check changes from "exactly `127.0.0.1:<port>` or `localhost:<port>`" to "the host part is `localhost` or an IP literal (bracketed IPv6 included), any port". DNS rebinding needs a host name the attacker controls, so this still blocks it, and it lets through remapped ports (`-p 9000:8080` sends `Host: localhost:9000`) and access by IP from another machine. Other host names are still refused.
+- With a non-loopback bind, `serve` warns on stderr that the UI is reachable from the network and that the token travels over plain HTTP. The printed URL uses the bind address, or `127.0.0.1` when it is unspecified (`0.0.0.0`, `::`).
+- The image does not preset `GRANTCENTRAL_BIND`. Users opt in with `-e`. A preset would expose the UI on every host interface under `--network host`, which the e2e wrapper and the CI tasks use.
+- README "The web UI" and the AGENTS.md "Web UI security" bullet describe the flag and the new Host rule.
+
 **Release workflow**
 
 - New `image` job, needs `build`. Runs on every trigger, including `workflow_dispatch`. It downloads the musl artifacts, lays out the build context, builds the `slim` and `full` images for `linux/amd64` only, loads them into the local Docker daemon, and runs the e2e suite against each of them (see Testing Decisions). It pushes nothing.
@@ -91,7 +105,7 @@ The image targets `grantcentral run` (and the other headless subcommands). `serv
 **Documentation**
 
 - README: replace the "The `Dockerfile` builds an image..." sentence with a short "Container image" section: the two tags and when to pick which, the `docker run` example with `-v "$PWD:/work"`, passing secrets with `-e`, and running as your own UID with `--user "$(id -u):$(id -g)"` so that written reports are yours.
-- README known limits, documented instead of fixed: `login = "system"` has no browser in the container; `keyring` secrets have no Secret Service in the container (use `env` or `file`); `login = "manual"` needs `-it`; `serve` binds to the container's `127.0.0.1`, which `-p` can't reach. Making it reachable would need a bind-address flag, which goes against the web UI's loopback-only rule, so the image targets `run`.
+- README known limits, documented instead of fixed: `login = "system"` has no browser in the container; `keyring` secrets have no Secret Service in the container (use `env` or `file`); `login = "manual"` needs `-it`. Also a `serve` example with `-e GRANTCENTRAL_BIND=0.0.0.0`, `-e GRANTCENTRAL_PORT` and `-p`, plus the plain-HTTP warning.
 - README "Releases": mention that the release also publishes the GHCR images and the musl tarballs.
 - `Dockerfile` header comment: how to build locally (build the musl binary, place it in the context layout, `docker build --target slim|full`).
 
@@ -103,11 +117,13 @@ The image targets `grantcentral run` (and the other headless subcommands). `serv
   - **Images:** a thin wrapper script next to the e2e runner stands in for the binary. It runs the image with host networking (so the container reaches the local OP and the OP's redirects reach the container's loopback listener), bind-mounts the e2e directory at the same absolute path and runs as the caller's UID. The `image` job runs the suite through the wrapper once per variant. `slim` runs with `--skip-tag chromium`. `full` runs every flow, with Chromium inside the image, so that the image's `CHROME`, no-sandbox and arbitrary-UID `HOME` are all exercised. The suite's Chrome auto-detection looks at the host, so the wrapper invocation for `full` must tell it a browser exists, rather than letting it skip.
   - Upload the JUnit report, OP log and screenshots as artifacts on failure, as the `ci.yml` e2e job does.
 - The `linux/arm64` image is not run in CI. It differs from the tested amd64 image only in the binary it copies (tested natively above) and the arch of the same apk packages. Running it would need Docker on the ARM runner as well. Add that only if an arm64-only image bug shows up.
+- **Bind address:** unit tests for the Host check as a pure function over the header value: `localhost`, IPv4 and bracketed IPv6 literals pass with any port; other host names and a missing header fail. In the `image` job, one smoke step runs `slim` with `-e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=... -p` and `serve`, and checks that `/` answers 200 through the published port.
 - `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace` and the existing `ci.yml` e2e job are unaffected and must keep passing.
 
 ## Out of Scope
 
-- Making `serve` reachable from outside the container (a bind-address flag, `0.0.0.0`). It conflicts with the web UI's loopback-only rule and needs its own decision.
+- TLS for `serve`. A non-loopback bind sends the token over plain HTTP; the warning and the README say so.
+- An allow-list for host names other than `localhost` in the Host check.
 - A browser for `login = "system"` in the container, and a Secret Service for `keyring` secrets.
 - A slim *binary* without the `chromium` feature. The slim image only drops the browser, not the code.
 - Images for other platforms (`linux/arm/v7`, Windows containers) and Docker Hub or other registries.

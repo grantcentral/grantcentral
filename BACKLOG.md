@@ -128,9 +128,8 @@ Specified in `.scratch/ghcr-image/spec.md`. In short:
   runs are I/O-bound.
 - Known limits, to document instead of fixing:
   - `login = system` has no browser inside a container.
-  - `serve` binds to the container's `127.0.0.1`, which `-p` can't reach. Making it work
-    would need a bind-address flag, which goes against the web UI's loopback-only rule.
-    That needs a decision first, so the image targets `run` only.
+- `serve` gets `--bind` / `GRANTCENTRAL_BIND` (default `127.0.0.1`) and `GRANTCENTRAL_PORT`,
+  so that `-p` can reach the web UI in a container.
 
 ## CI tasks: GitHub Actions and Azure Pipelines
 

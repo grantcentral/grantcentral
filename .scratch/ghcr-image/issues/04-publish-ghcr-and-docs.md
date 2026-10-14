@@ -2,7 +2,7 @@
 
 **What to build:** On a `v*` tag push, the release publishes `ghcr.io/<owner>/grantcentral` for `linux/amd64` and `linux/arm64`, in both variants. The tags are `X.Y.Z` and `latest` for `full`, and `X.Y.Z-slim` and `slim` for `slim`. Users can pull and run it from a pipeline or from Docker on Apple Silicon without building anything. The README explains how to use the image and what doesn't work in a container. See the spec (`../spec.md`), "Release workflow", "Documentation" and "Further Notes".
 
-**Blocked by:** 03 (Full image with Chromium, e2e-tested)
+**Blocked by:** 03 (Full image with Chromium, e2e-tested), 05 (`serve` bind address and port from the environment)
 
 **Status:** ready-for-agent
 
@@ -16,7 +16,8 @@
   - `login = "system"` has no browser in a container.
   - `keyring` secrets have no Secret Service in a container (use `env` or `file`).
   - `login = "manual"` needs `-it`.
-  - `serve` binds to the container's `127.0.0.1`, which `-p` can't reach. Making it reachable would need a bind-address flag, which goes against the web UI's loopback-only rule, so the image targets `run`.
+- [ ] The "Container image" section has a `serve` example: `-e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=8080 -p 8080:8080 ... serve --no-open`, with the warning that the token travels over plain HTTP.
+- [ ] The `image` job runs `slim` with `-e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=... -p` and `serve`, and checks that `/` answers 200 through the published port.
 - [ ] README "Releases" says the release also publishes the GHCR images, and notes the one-time manual step: the first push creates the package as private, so a maintainer has to make it public (and link it to the repository if the source label didn't).
 - [ ] The `Dockerfile` header comment explains how to build the image locally: build the musl binary, place it in the build-context layout, then run `docker build --target slim|full`.
 - [ ] `BACKLOG.md`'s "Multi-arch Alpine image on GHCR" entry is removed, since this ticket finishes it.
