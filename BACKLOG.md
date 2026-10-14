@@ -137,6 +137,8 @@ Specified in `.scratch/ghcr-image/spec.md`. In short:
 Package a single `grantcentral run ...` invocation with inputs (`args` or `flows`, `env`,
 `login`, `junit`, `json`, `version`) and upload the reports.
 
+Specified in `.scratch/ci-tasks/spec.md`. In short:
+
 **Binary or Docker image? Default to the prebuilt binary, and keep the image as the fallback.**
 
 | | Prebuilt binary | Docker image |
@@ -149,8 +151,9 @@ Package a single `grantcentral run ...` invocation with inputs (`args` or `flows
 
 - **GitHub Action:** a composite `action.yml` at the repo root, so it can be used as
   `uses: <owner>/grantcentral@v0`. It downloads the release tarball for `runner.os`/`runner.arch`,
-  verifies a `SHA256SUMS` file (add it to the release job), caches the binary, and sets
-  `CHROME` from `browser-actions/setup-chrome` when the runner has no Chrome. It needs a
+  verifies a `SHA256SUMS` file (add it to the release job) and caches the binary. It installs
+  no Chrome: hosted images ship it and chromiumoxide finds it, so self-hosted agents without
+  Chrome use the container instead. It needs a
   moving `v0` major tag. That tag has to be pushed to Forgejo, because CI here never pushes
   tags. Publish it on the Marketplace once it is stable.
 - **Azure Pipelines:** start with a YAML step template (`ci/azure/grantcentral.yml`) consumed
