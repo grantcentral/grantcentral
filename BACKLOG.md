@@ -103,6 +103,8 @@ Silicon runs `linux/arm64`, so those two platforms cover Linux and macOS hosts. 
 `Dockerfile` is Debian-based and still installs `libssl3`, which nothing has needed since
 OpenSSL was dropped.
 
+Specified in `.scratch/ghcr-image/spec.md`. In short:
+
 - **Build static musl binaries, not in the Dockerfile.** Add `x86_64-unknown-linux-musl` and
   `aarch64-unknown-linux-musl` to the release matrix, using the native `ubuntu-24.04-arm` runner
   for aarch64 rather than QEMU, which is very slow for a release build with LTO. aws-lc-sys,
@@ -119,8 +121,9 @@ OpenSSL was dropped.
   convention from the current Dockerfile.
 - Publish from the `release` job with `docker/build-push-action` (`platforms: linux/amd64,linux/arm64`,
   `permissions: packages: write`, `GITHUB_TOKEN`). Pushing an image is not a git ref, so this
-  is compatible with the Forgejo mirror rule. build-push-action adds provenance and an SBOM
-  by default.
+  is compatible with the Forgejo mirror rule. build-push-action adds provenance by default; the
+  SBOM has to be enabled explicitly.
+- Gate the push on the e2e suite: run it with each musl binary, and through the amd64 images.
 - If musl's allocator turns out to be slow, add mimalloc, but measure first, because the
   runs are I/O-bound.
 - Known limits, to document instead of fixing:
