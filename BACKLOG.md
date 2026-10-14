@@ -54,19 +54,24 @@ response, and can optionally encrypt it. Most of the pieces already exist: `auth
 The [Security Profile](https://openid.net/specs/fapi-security-profile-2_0-final.html) has been
 Final since Feb 2025, and [Message Signing](https://openid.net/specs/fapi-message-signing-2_0-final.html)
 since Sep 2025. Every protocol feature the Security Profile needs already exists (PAR, PKCE, DPoP,
-mTLS, `private_key_jwt`, RFC 9207). What's missing are the profile rules:
+mTLS, `private_key_jwt`, RFC 9207). What's missing are the profile rules.
 
-- `audit --profile fapi2`: PAR required (`require_pushed_authorization_requests`), PKCE S256,
+Specified in `.scratch/fapi2-profiles/spec.md` (terms in `CONTEXT.md`, ADR 0001). In short:
+
+- `[client] profiles = ["fapi2"]`, plus `client_type` replacing today's audit `profile`.
+- `audit` checks: PAR required (`require_pushed_authorization_requests`), PKCE S256,
   `response_type = code` only, `iss` parameter, DPoP or mTLS-bound tokens, client auth limited to
   `private_key_jwt`/mTLS, and signing algs limited to PS256/ES256/EdDSA (flag RS256).
-- Response checks behind a client/flow `profile = "fapi2"` switch: ID token and JWT algs from the
-  same allow-list, and the authorization code lifetime is at most 60 s (`expires_in` on the PAR
-  response is at most 600 s).
+- Live response checks: ID token and JWT algs from the same allow-list, no unbound bearer tokens,
+  and `expires_in` on the PAR response at most 600 s.
+- The authorization code lifetime (at most 60 s) can't be seen by the client. A `slow`-tagged e2e
+  flow tests it by waiting and then redeeming.
 - Negative-test flow: no PAR, no PKCE, `client_secret_*` auth and a bearer (unbound) token use
   must all be rejected.
-- Message Signing composes JAR (exists), JARM (above) and RFC 9701 introspection (exists). Leave
-  HTTP Message Signatures (RFC 9421) out until someone asks for them.
-- e2e: node-oidc-provider `features.fapi` with `profile: '2.0'`.
+- Message Signing composes JAR (exists), JARM (above) and RFC 9701 introspection (exists). Once JARM
+  lands it becomes a `fapi2_message_signing` profile that extends `fapi2`. Leave HTTP Message
+  Signatures (RFC 9421) out until someone asks for them.
+- e2e: node-oidc-provider `features.fapi` with `profile: '2.0'`, for one dedicated client only.
 
 ## FAPI 1.0 Advanced (maybe)
 
@@ -75,20 +80,21 @@ Finance and Australia CDR. Beyond FAPI 2.0 plus JARM it adds little:
 
 - `s_hash` validation in the ID token, plus the hybrid `code id_token` detached signature.
 - Request object `exp - nbf` of at most 60 min, and the `x-fapi-interaction-id` echo on resource calls.
-- `audit --profile fapi1`.
+- A `fapi1` profile.
 
 Do it after FAPI 2.0, and only if a user targets one of those ecosystems.
 
 ## OAuth 2.1 profile
 
-No `oauth21` profile exists today. The current `audit` profiles already check most of its MUSTs
-(PKCE, no implicit grant, no password grant, and refresh rotation for public clients), but they
-cite RFC 9700 and RFC 10017, not 2.1. OAuth 2.1 is still an Internet-Draft
+No `oauth21` profile exists today. The current client-type audit already checks most of its MUSTs
+(PKCE, no implicit grant, no password grant, and refresh rotation for public clients), but it
+cites RFC 9700 and RFC 10017, not 2.1. OAuth 2.1 is still an Internet-Draft
 ([draft-ietf-oauth-v2-1](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)). Once it
-becomes an RFC, add 2.1 section citations to the existing checks, plus the few 2.1-only
-rules: PKCE required for every client, no bearer tokens in the query string (flag
-`auth = "bearer_query"` in reports, but keep sending it, since negative tests need it), and exact
-redirect URI matching (already covered by e2e 09).
+becomes an RFC, add an `oauth21` profile (the `profiles` list from the FAPI 2.0 spec already
+allows it): 2.1 section citations on the existing checks, plus the few 2.1-only rules: PKCE
+required for every client, no bearer tokens in the query string (flag `auth = "bearer_query"` in
+reports, but keep sending it, since negative tests need it), and exact redirect URI matching
+(already covered by e2e 09).
 
 ## Multi-arch Alpine image on GHCR
 
