@@ -96,41 +96,6 @@ required for every client, no bearer tokens in the query string (flag `auth = "b
 reports, but keep sending it, since negative tests need it), and exact redirect URI matching
 (already covered by e2e 09).
 
-## Multi-arch Alpine image on GHCR
-
-Publish `ghcr.io/<owner>/grantcentral` for `linux/amd64` and `linux/arm64`. Docker on Apple
-Silicon runs `linux/arm64`, so those two platforms cover Linux and macOS hosts. The current
-`Dockerfile` is Debian-based and still installs `libssl3`, which nothing has needed since
-OpenSSL was dropped.
-
-Specified in `.scratch/ghcr-image/spec.md`. In short:
-
-- **Build static musl binaries, not in the Dockerfile.** Add `x86_64-unknown-linux-musl` and
-  `aarch64-unknown-linux-musl` to the release matrix, using the native `ubuntu-24.04-arm` runner
-  for aarch64 rather than QEMU, which is very slow for a release build with LTO. aws-lc-sys,
-  zbus and chromiumoxide are all fine on musl. Attach the tarballs to the GitHub Release as
-  well, since Linux aarch64 has no binary today. Then the Dockerfile only does
-  `COPY --from=<binary> ...` per `TARGETARCH`, and the image build takes seconds.
-- **Two tags, because Chromium dominates the size.** Alpine's `chromium` package is a few
-  hundred MB, while the binary is about 11 MiB.
-  - `:X.Y.Z-slim` / `:slim`: `alpine` + `ca-certificates` + `git` + the binary. reqwest uses the
-    platform verifier, so it needs the CA store.
-  - `:X.Y.Z` / `:latest`: the slim image plus `chromium` and `nss`, with `CHROME=/usr/bin/chromium-browser`
-    and `GRANTCENTRAL_NO_SANDBOX=true`.
-- Run as a non-root user and keep `ENTRYPOINT ["grantcentral"]`. Keep the `/work` volume
-  convention from the current Dockerfile.
-- Publish from the `release` job with `docker/build-push-action` (`platforms: linux/amd64,linux/arm64`,
-  `permissions: packages: write`, `GITHUB_TOKEN`). Pushing an image is not a git ref, so this
-  is compatible with the Forgejo mirror rule. build-push-action adds provenance by default; the
-  SBOM has to be enabled explicitly.
-- Gate the push on the e2e suite: run it with each musl binary, and through the amd64 images.
-- If musl's allocator turns out to be slow, add mimalloc, but measure first, because the
-  runs are I/O-bound.
-- Known limits, to document instead of fixing:
-  - `login = system` has no browser inside a container.
-- `serve` gets `--bind` / `GRANTCENTRAL_BIND` (default `127.0.0.1`) and `GRANTCENTRAL_PORT`,
-  so that `-p` can reach the web UI in a container.
-
 ## CI tasks: GitHub Actions and Azure Pipelines
 
 Package a single `grantcentral run ...` invocation with inputs (`args` or `flows`, `env`,

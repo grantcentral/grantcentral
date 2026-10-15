@@ -6,8 +6,9 @@ server, with `http://127.0.0.1/callback` allowed as a redirect URI (any port).
 
 ## 1. Install
 
-Download the binary for your platform from the GitHub releases, or install it
-with Cargo:
+Download the binary for your platform from the GitHub releases (the Linux
+`musl` builds are static and run on any distribution, x86_64 or aarch64), use
+the [container image](reference.md#container-image), or install it with Cargo:
 
 ```sh
 cargo install grantcentral

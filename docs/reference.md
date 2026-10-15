@@ -160,8 +160,45 @@ setting for CI. Point `--chrome` or `CHROME` at the browser, and add
 
 Exit codes: `0` all flows passed, `1` a flow failed, `2` usage or
 configuration error. Reports and logs mask secret values, including their
-URL-encoded and JSON-escaped forms, and `Authorization: Basic` headers. The
-`Dockerfile` builds an image with the CLI, git and Chromium.
+URL-encoded and JSON-escaped forms, and `Authorization: Basic` headers.
+
+### Container image
+
+Each release publishes `ghcr.io/grantcentral/grantcentral` for `linux/amd64`
+and `linux/arm64`, in two variants:
+
+| Tag | Contents | Pick it for |
+|---|---|---|
+| `X.Y.Z`, `latest` | `grantcentral`, git, CA certificates and Chromium, with `CHROME` and `GRANTCENTRAL_NO_SANDBOX=true` set | `--login chromium` |
+| `X.Y.Z-slim`, `slim` | the same without Chromium, tens of MB | `http` logins and token-only flows |
+
+Pin a version in pipelines. Pre-releases get only their version tag and never
+move `latest` or `slim`.
+
+```sh
+docker run --rm -v "$PWD:/work" --user "$(id -u):$(id -g)" -e GC_STAGING_CLIENT_SECRET \
+  ghcr.io/grantcentral/grantcentral:X.Y.Z run --env staging --login chromium --junit report.xml
+```
+
+The entrypoint is `grantcentral` and the working directory is `/work`. The
+image runs as a non-root user (UID 10001); `--user` runs it as you instead, so
+the reports and screenshots it writes to `/work` belong to you. Pass `env`
+secrets with `-e` (`-e NAME` copies the value from your shell). Some things
+don't work in a container:
+
+- `login = "system"` has no browser to open. Use `chromium` or `http`.
+- `keyring` secrets have no Secret Service. Use `env`, or `file` with a mounted file.
+- `login = "manual"` reads the pasted URL from stdin, so add `-it`.
+
+The web UI needs a non-loopback bind and a fixed port to publish:
+
+```sh
+docker run --rm -v "$PWD:/work" -p 8080:8080 -e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=8080 \
+  ghcr.io/grantcentral/grantcentral serve --no-open
+```
+
+Open the URL it prints. Its token travels over plain HTTP, so anyone who can
+see the traffic can use the UI.
 
 ## The web UI
 
