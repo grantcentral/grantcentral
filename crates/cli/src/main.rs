@@ -52,8 +52,8 @@ enum Command {
         /// Override how every authorization step reaches the user agent.
         #[arg(long, value_enum)]
         login: Option<Login>,
-        /// Chromium executable for --login chromium.
-        #[arg(long, env = "CHROME")]
+        /// Chromium executable for --login chromium. Defaults to $CHROME.
+        #[arg(long)]
         chrome: Option<PathBuf>,
         /// Show the Chromium window.
         #[arg(long)]
