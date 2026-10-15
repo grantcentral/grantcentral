@@ -4,7 +4,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch: # builds binaries as workflow artifacts only
+  workflow_dispatch: # builds and tests binaries and images, publishes nothing
 
 permissions:
   contents: read
@@ -16,19 +16,26 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          # Static binaries for the container images, each built and e2e-tested on its own arch.
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, apt: musl-tools }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, apt: musl-tools }
           # Cross-compiled with MinGW.
-          - { os: ubuntu-latest, target: x86_64-pc-windows-gnu }
+          - { os: ubuntu-latest, target: x86_64-pc-windows-gnu, apt: mingw-w64 }
           # macOS needs Apple's SDK, so it builds on a Mac (both arches from one runner).
           - { os: macos-latest, target: aarch64-apple-darwin }
           - { os: macos-latest, target: x86_64-apple-darwin }
     runs-on: ${{ matrix.os }}
+    env:
+      # aws-lc-sys compiles C, which has to use musl's headers, not glibc's.
+      CC_x86_64_unknown_linux_musl: musl-gcc
+      CC_aarch64_unknown_linux_musl: musl-gcc
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+      - if: matrix.apt
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -44,9 +51,93 @@ jobs:
           path: |
             target/${{ matrix.target }}/release/*.zip
             target/${{ matrix.target }}/release/*.tar.gz
+      - if: contains(matrix.target, 'musl')
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Chrome for Testing has no Linux arm64 build, so aarch64 skips the chromium flows.
+      - if: matrix.target == 'x86_64-unknown-linux-musl'
+        uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - if: contains(matrix.target, 'musl')
+        run: |
+          file "$GRANTCENTRAL" | grep -E 'static(-pie)? linked'
+          e2e/run.sh --junit e2e/report.xml
+        env:
+          GRANTCENTRAL: ${{ github.workspace }}/target/${{ matrix.target }}/release/grantcentral
+          CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          GRANTCENTRAL_NO_SANDBOX: "true"
+      - if: failure() && contains(matrix.target, 'musl')
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.target }}
+          path: |
+            e2e/report.xml
+            e2e/server.log
+            e2e/project/.grantcentral/screenshots/
+
+  # Builds the amd64 images from the musl binaries and runs the e2e suite through them.
+  image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: grantcentral-*-musl
+          path: dist
+          merge-multiple: true
+      - run: |
+          mkdir ctx
+          tar xzOf dist/*-x86_64-unknown-linux-musl.tar.gz grantcentral > ctx/amd64
+          tar xzOf dist/*-aarch64-unknown-linux-musl.tar.gz grantcentral > ctx/arm64
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: ctx
+          file: Dockerfile
+          target: slim
+          platforms: linux/amd64
+          load: true
+          tags: grantcentral:slim
+      - uses: docker/build-push-action@v6
+        with:
+          context: ctx
+          file: Dockerfile
+          target: full
+          platforms: linux/amd64
+          load: true
+          tags: grantcentral:full
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: e2e/run.sh --skip-tag chromium --junit "$PWD/e2e/report.xml"
+        env:
+          GRANTCENTRAL: ${{ github.workspace }}/e2e/docker.sh
+          GRANTCENTRAL_IMAGE: grantcentral:slim
+      - run: e2e/run.sh --junit "$PWD/e2e/report.xml"
+        env:
+          GRANTCENTRAL: ${{ github.workspace }}/e2e/docker.sh
+          GRANTCENTRAL_IMAGE: grantcentral:full
+          # Only tells run.sh a browser exists; the image brings its own CHROME.
+          CHROME: in-image
+      # A remapped port also exercises the Host check (`Host: localhost:9000`).
+      - name: serve through a published port
+        run: |
+          docker run -d --name serve -v "$PWD/e2e/project:/work" -p 9000:8080 \
+            -e GRANTCENTRAL_BIND=0.0.0.0 -e GRANTCENTRAL_PORT=8080 grantcentral:slim serve --no-open
+          curl -fsS --retry 10 --retry-all-errors --retry-delay 1 -o /dev/null http://localhost:9000/ || { docker logs serve; exit 1; }
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-image
+          path: |
+            e2e/report.xml
+            e2e/server.log
+            e2e/project/.grantcentral/screenshots/
 
   publish:
-    needs: build
+    needs: [build, image]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -71,6 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -83,3 +175,63 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md
         env:
           GH_TOKEN: ${{ github.token }}
+      - run: |
+          mkdir ctx
+          tar xzOf dist/*-x86_64-unknown-linux-musl.tar.gz grantcentral > ctx/amd64
+          tar xzOf dist/*-aarch64-unknown-linux-musl.tar.gz grantcentral > ctx/arm64
+      # The binaries are prebuilt; QEMU only runs `apk add` for the arm64 stages.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # Pre-releases get only their version tag: `latest=auto` and the `enable` below skip them.
+      - uses: docker/metadata-action@v5
+        id: full
+        env:
+          # GHCR reads a multi-arch image's description and source from the index.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/grantcentral
+          # GitHub can't detect the license: it's only declared in Cargo.toml.
+          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
+          tags: type=semver,pattern={{version}}
+      - uses: docker/metadata-action@v5
+        id: slim
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/grantcentral
+          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
+          flavor: |
+            latest=false
+            suffix=-slim
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=slim,suffix=,enable=${{ !contains(github.ref_name, '-') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ctx
+          file: Dockerfile
+          target: slim
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.slim.outputs.tags }}
+          labels: ${{ steps.slim.outputs.labels }}
+          annotations: ${{ steps.slim.outputs.annotations }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ctx
+          file: Dockerfile
+          target: full
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: ${{ steps.full.outputs.tags }}
+          labels: ${{ steps.full.outputs.labels }}
+          annotations: ${{ steps.full.outputs.annotations }}

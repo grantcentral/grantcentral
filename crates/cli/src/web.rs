@@ -1,9 +1,9 @@
 //! `grantcentral serve`: the browser UI talks to this local process, which owns
 //! the filesystem, git, the loopback redirect listener and the keychain.
 //!
-//! Security: binds 127.0.0.1 only, every API call needs the random token from
-//! the URL printed at startup, and the Host header must name the loopback
-//! address (DNS rebinding defense).
+//! Security: binds 127.0.0.1 unless `--bind`/`GRANTCENTRAL_BIND` says otherwise,
+//! every API call needs the random token from the URL printed at startup, and
+//! the Host header must be `localhost` or an IP literal (DNS rebinding defense).
 
 use anyhow::Result;
 use axum::extract::{Path as UrlPath, Query, Request, State};
@@ -18,6 +18,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -37,7 +38,6 @@ struct RunState {
 struct App {
     project: Project,
     token: String,
-    port: u16,
     runs: Mutex<HashMap<String, RunState>>,
     /// Bumped whenever a project file is added, removed or modified on disk.
     files_version: AtomicUsize,
@@ -62,15 +62,14 @@ impl From<anyhow::Error> for ApiError {
 
 type ApiResult<T> = Result<T, ApiError>;
 
-pub async fn serve(project: Project, port: u16, open_browser: bool) -> Result<()> {
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
+pub async fn serve(project: Project, bind: IpAddr, port: u16, open_browser: bool) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind((bind, port)).await?;
     let port = listener.local_addr()?.port();
     let token = random_token();
     let name = project.name();
     let app = Arc::new(App {
         project,
         token: token.clone(),
-        port,
         runs: Mutex::new(HashMap::new()),
         files_version: AtomicUsize::new(1),
         changed: Notify::new(),
@@ -98,9 +97,13 @@ pub async fn serve(project: Project, port: u16, open_browser: bool) -> Result<()
         .route("/vendor/codemirror.js", get(|| async { ([(header::CONTENT_TYPE, "text/javascript")], CM_JS) }))
         .route("/vendor/codemirror.css", get(|| async { ([(header::CONTENT_TYPE, "text/css")], CM_CSS) }))
         .nest("/api", api)
-        .layer(middleware::from_fn_with_state(app.clone(), check_host))
+        .layer(middleware::from_fn(check_host))
         .with_state(app);
-    let url = format!("http://127.0.0.1:{port}/#token={token}");
+    let host = if bind.is_unspecified() { IpAddr::V4(Ipv4Addr::LOCALHOST) } else { bind };
+    let url = format!("http://{}/#token={token}", SocketAddr::new(host, port));
+    if !bind.is_loopback() {
+        eprintln!("warning: the web UI is reachable from the network on {bind}, and its token travels over plain HTTP.");
+    }
     println!("GrantCentral web UI for {}:\n  {url}\nPress Ctrl+C to stop.", name);
     if open_browser {
         let _ = open::that_detached(&url);
@@ -117,13 +120,26 @@ fn random_token() -> String {
     grantcentral_core::random_b64(24)
 }
 
-async fn check_host(State(app): St, req: Request, next: Next) -> Response {
-    let host = req.headers().get(header::HOST).and_then(|h| h.to_str().ok()).unwrap_or("");
-    let allowed = [format!("127.0.0.1:{}", app.port), format!("localhost:{}", app.port)];
-    if !allowed.iter().any(|a| a == host) {
+async fn check_host(req: Request, next: Next) -> Response {
+    if !host_allowed(req.headers().get(header::HOST).and_then(|h| h.to_str().ok())) {
         return (StatusCode::FORBIDDEN, "unexpected Host header").into_response();
     }
     next.run(req).await
+}
+
+/// DNS rebinding needs a host name the attacker controls, so allowing only `localhost` and
+/// IP literals still blocks it. Any port, so `docker -p 9000:8080` and LAN access work.
+fn host_allowed(host: Option<&str>) -> bool {
+    let Some(host) = host else { return false };
+    // A bracketed IPv6 literal has colons of its own, so only split off a port after the `]`.
+    let (name, port) = match host.rsplit_once(':') {
+        Some((n, p)) if !p.contains(']') => (n, Some(p)),
+        _ => (host, None),
+    };
+    port.is_none_or(|p| p.parse::<u16>().is_ok())
+        && (name.eq_ignore_ascii_case("localhost")
+            || name.parse::<Ipv4Addr>().is_ok()
+            || name.strip_prefix('[').and_then(|n| n.strip_suffix(']')).is_some_and(|n| n.parse::<Ipv6Addr>().is_ok()))
 }
 
 async fn require_token(State(app): St, req: Request, next: Next) -> Response {
@@ -338,4 +354,27 @@ async fn git_pull(State(app): St) -> ApiResult<Json<Value>> {
 async fn git_push(State(app): St) -> ApiResult<Json<Value>> {
     let root = app.project.root.clone();
     Ok(Json(json!({ "output": blocking(move || git::push(&root)).await? })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::host_allowed;
+
+    #[test]
+    fn host_check_allows_localhost_and_ip_literals_on_any_port() {
+        for h in
+            ["localhost:8080", "LOCALHOST:1", "localhost", "127.0.0.1:9000", "192.168.1.20:8080", "10.0.0.1", "[::1]:8080", "[fe80::1]"]
+        {
+            assert!(host_allowed(Some(h)), "{h}");
+        }
+    }
+
+    #[test]
+    fn host_check_refuses_host_names_and_missing_header() {
+        for h in ["evil.example:8080", "evil.example", "localhost.evil.example:80", "127.0.0.1.nip.io:80", "::1", "[::1", "localhost:x", ""]
+        {
+            assert!(!host_allowed(Some(h)), "{h}");
+        }
+        assert!(!host_allowed(None));
+    }
 }

@@ -82,10 +82,11 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - **Secrets must never leak.** Anything a report or log emits has to go through
   `RunReport::redacted()`, which also masks URL-encoded and JSON-escaped forms and
   `Authorization: Basic` headers. Register new secret-like values in `redactions`.
-- **Web UI security.** `serve` binds to `127.0.0.1` by default (a bind-address flag is
-  planned, `.scratch/ghcr-image/issues/05-serve-bind.md`), requires the random token on
-  every API call (compared in constant time) and rejects non-loopback `Host`
-  headers. Keep the token and Host checks when you add routes in `cli/src/web.rs`.
+- **Web UI security.** `serve` binds to `127.0.0.1` by default (`--bind` /
+  `GRANTCENTRAL_BIND` changes it, `--port` / `GRANTCENTRAL_PORT` fixes the port), requires
+  the random token on every API call (compared in constant time) and rejects any `Host`
+  header that isn't `localhost` or an IP literal. Keep the token and Host checks when you
+  add routes in `cli/src/web.rs`.
 - The web UI is a single file, `crates/cli/web/index.html`, embedded with
   `include_str!`. It has no build step and no npm dependencies. The only exception
   is the editor: a pre-built CodeMirror 5 bundle in `crates/cli/web/vendor/` (the
