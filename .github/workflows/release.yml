@@ -61,7 +61,8 @@ jobs:
         id: chrome
       - if: contains(matrix.target, 'musl')
         run: |
-          file "$GRANTCENTRAL" | grep -E 'static(-pie)? linked'
+          # x86_64 builds static-pie, aarch64 plain static; `file` words them differently.
+          file "$GRANTCENTRAL" | tee /dev/stderr | grep -qE 'static(-pie|ally) linked'
           e2e/run.sh --junit e2e/report.xml
         env:
           GRANTCENTRAL: ${{ github.workspace }}/target/${{ matrix.target }}/release/grantcentral
