@@ -164,6 +164,12 @@ jobs:
     permissions:
       contents: write
       packages: write
+    env:
+      # metadata-action takes these from GitHub, which has no repo description and can't
+      # detect the license (it's only declared in Cargo.toml), so it would leave them empty.
+      OCI_META: |
+        org.opencontainers.image.description=Headless OAuth 2.0 / OpenID Connect flow runner and local web UI
+        org.opencontainers.image.licenses=MIT OR Apache-2.0
     steps:
       - uses: actions/checkout@v4
       # Only the binaries: build-push-action also uploads `*.dockerbuild` build records.
@@ -198,8 +204,8 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/grantcentral
-          # GitHub can't detect the license: it's only declared in Cargo.toml.
-          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
+          labels: ${{ env.OCI_META }}
+          annotations: ${{ env.OCI_META }}
           tags: type=semver,pattern={{version}}
       - uses: docker/metadata-action@v5
         id: slim
@@ -207,7 +213,8 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/grantcentral
-          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
+          labels: ${{ env.OCI_META }}
+          annotations: ${{ env.OCI_META }}
           flavor: |
             latest=false
             suffix=-slim
