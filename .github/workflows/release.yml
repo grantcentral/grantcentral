@@ -166,8 +166,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Only the binaries: build-push-action also uploads `*.dockerbuild` build records.
       - uses: actions/download-artifact@v4
         with:
+          pattern: grantcentral-*
           path: dist
           merge-multiple: true
       # The notes are this version's section of the changelog written by `release-plz update`.
