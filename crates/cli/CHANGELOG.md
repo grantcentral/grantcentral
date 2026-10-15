@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5](https://git.jirsh.net/grantcentral/grantcentral/compare/v0.0.4...v0.0.5) - 2026-10-15
+
+### Other
+
+- First release with container images on GHCR and binaries on GitHub Releases. The code is the same as 0.0.4, which only reached crates.io.
+
 ## [0.0.4](https://git.jirsh.net/grantcentral/grantcentral/compare/v0.0.3...v0.0.4) - 2026-10-15
 
 ### Added
