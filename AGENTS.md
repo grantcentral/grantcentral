@@ -1,6 +1,6 @@
 # AGENT.md
 
-Notes for coding agents working on GrantCentral. `README.md` is the user-facing
+Notes for coding agents working on GrantCentral. `docs/reference.md` is the user-facing
 reference for flow syntax, step types, CLI usage and spec coverage. Read it before
 changing behavior, and keep it in sync with your changes.
 
@@ -66,8 +66,8 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 1. Define a `FooStep` struct and add a `StepKind::Foo` variant with a doc comment
    in `model.rs`. Add the variant to `type_name()` too.
 2. Implement it in the matching `oauth/*.rs` file and add an arm to `oauth/mod.rs::execute`.
-3. Add a row to the step table in `README.md`, plus an e2e flow or a wiremock test.
-4. Any new spec support also needs a row in README's "Specification coverage" table,
+3. Add a row to the step table in `docs/reference.md`, plus an e2e flow or a wiremock test.
+4. Any new spec support also needs a row in the "Specification coverage" table in `docs/reference.md`,
    naming the test that covers it.
 
 ## Conventions
@@ -82,9 +82,10 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - **Secrets must never leak.** Anything a report or log emits has to go through
   `RunReport::redacted()`, which also masks URL-encoded and JSON-escaped forms and
   `Authorization: Basic` headers. Register new secret-like values in `redactions`.
-- **Web UI security.** `serve` binds to `127.0.0.1` only, requires the random token on
+- **Web UI security.** `serve` binds to `127.0.0.1` by default (a bind-address flag is
+  planned, `.scratch/ghcr-image/issues/05-serve-bind.md`), requires the random token on
   every API call (compared in constant time) and rejects non-loopback `Host`
-  headers. Keep all three when you add routes in `cli/src/web.rs`.
+  headers. Keep the token and Host checks when you add routes in `cli/src/web.rs`.
 - The web UI is a single file, `crates/cli/web/index.html`, embedded with
   `include_str!`. It has no build step and no npm dependencies. The only exception
   is the editor: a pre-built CodeMirror 5 bundle in `crates/cli/web/vendor/` (the
@@ -111,7 +112,7 @@ Without Chrome, the script skips the `chromium`-tagged flows.
 - In containers or CI, Chromium needs `--no-sandbox` or `GRANTCENTRAL_NO_SANDBOX=true`.
 - GitHub is a push mirror of a Forgejo repository, and each sync deletes refs that
   only exist on GitHub. CI on GitHub must never push branches or tags. Releases start
-  from a `v*` tag pushed to Forgejo (see "Releases" in `README.md`).
+  from a `v*` tag pushed to Forgejo (see "Releases" in `CONTRIBUTING.md`).
 - `redirect_uri` without a port means "pick a free port per run" (RFC 8252 §7.3).
   Don't "fix" it by adding a default port.
 
