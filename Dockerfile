@@ -3,7 +3,8 @@
 #   slim: grantcentral, git and CA certificates
 #   full: slim plus Chromium, set up for `run --login chromium`
 #
-# Building locally (x86_64; for arm64 use aarch64-unknown-linux-musl and ctx/arm64):
+# Building locally (x86_64; for arm64 use aarch64-unknown-linux-musl, CC_aarch64_unknown_linux_musl=musl-gcc
+# and ctx/arm64):
 #   cargo build --release --locked --target x86_64-unknown-linux-musl   # needs musl-tools (musl-gcc)
 #   mkdir -p ctx && cp target/x86_64-unknown-linux-musl/release/grantcentral ctx/amd64
 #   docker build -f Dockerfile --target full -t grantcentral ctx         # or --target slim

@@ -190,13 +190,21 @@ jobs:
       # Pre-releases get only their version tag: `latest=auto` and the `enable` below skip them.
       - uses: docker/metadata-action@v5
         id: full
+        env:
+          # GHCR reads a multi-arch image's description and source from the index.
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/grantcentral
+          # GitHub can't detect the license: it's only declared in Cargo.toml.
+          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
           tags: type=semver,pattern={{version}}
       - uses: docker/metadata-action@v5
         id: slim
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ghcr.io/${{ github.repository_owner }}/grantcentral
+          labels: org.opencontainers.image.licenses=MIT OR Apache-2.0
           flavor: |
             latest=false
             suffix=-slim
@@ -214,6 +222,7 @@ jobs:
           sbom: true
           tags: ${{ steps.slim.outputs.tags }}
           labels: ${{ steps.slim.outputs.labels }}
+          annotations: ${{ steps.slim.outputs.annotations }}
       - uses: docker/build-push-action@v6
         with:
           context: ctx
@@ -225,3 +234,4 @@ jobs:
           sbom: true
           tags: ${{ steps.full.outputs.tags }}
           labels: ${{ steps.full.outputs.labels }}
+          annotations: ${{ steps.full.outputs.annotations }}
