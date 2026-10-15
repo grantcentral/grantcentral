@@ -350,7 +350,7 @@ mod chromium {
         if run.opts.chrome.headful {
             b = b.with_head();
         }
-        if let Some(p) = run.opts.chrome.path.clone().or_else(|| std::env::var_os("CHROME").map(Into::into)) {
+        if let Some(p) = run.opts.chrome.path.clone().or_else(|| std::env::var_os("CHROME").filter(|v| !v.is_empty()).map(Into::into)) {
             b = b.chrome_executable(p);
         }
         if run.opts.chrome.no_sandbox {
