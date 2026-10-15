@@ -1,6 +1,6 @@
 # Multi-arch container image on GHCR
 
-Status: ready-for-agent
+Status: closed
 
 ## Problem Statement
 
@@ -139,3 +139,14 @@ docker run --rm -v "$PWD:/work" -p 8080:8080 -e GRANTCENTRAL_BIND=0.0.0.0 -e GRA
 - The release job's `GITHUB_TOKEN` can only push to a package the repository owns or has been granted write access to. If the package was ever created by hand under another owner, fix the package's "Manage Actions access" setting.
 - Record the image sizes of both variants (both arches) in the PR, next to today's Debian image, so the backlog's size claims can be checked.
 - The CI-tasks backlog entry plans a `SHA256SUMS` file on the release. If it lands first, include the musl tarballs in it. If this lands first, the CI-tasks work adds them.
+
+## Comments
+
+**2026-10-15, closed.** Tickets 01–05 shipped in #6 (`serve --bind`, musl binaries, `slim` and `full` images, GHCR publishing, docs). The first releases needed follow-up fixes:
+
+- #7: the static check rejected aarch64's `statically linked`.
+- #8: an empty `CHROME` made `grantcentral run` exit with a usage error.
+- #9: the release job tried to download the `*.dockerbuild` build records.
+- #10: the image description and license annotations were empty. Also added Docker to the getting-started guide.
+
+v0.0.4 reached only crates.io. v0.0.5 is the first release with GHCR images (`0.0.5`, `latest`, `0.0.5-slim` and `slim`, each for amd64 and arm64, public) and the musl tarballs on the GitHub Release. The image sizes were never recorded in a PR, as Further Notes asked. The `SHA256SUMS` note is covered by `.scratch/ci-tasks/issues/01-sha256sums-on-release.md`, which hashes every release asset.
