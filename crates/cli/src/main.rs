@@ -11,6 +11,7 @@ use grantcentral_core::report::{Severity, StepStatus};
 use grantcentral_core::{Project, RunOptions, RunReport, jose};
 use serde_json::Value;
 use std::io::{IsTerminal, Write};
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -94,9 +95,13 @@ enum Command {
     /// Manage secrets in the OS keychain.
     #[command(subcommand)]
     Secret(SecretCommand),
-    /// Serve the web UI on localhost.
+    /// Serve the web UI (on 127.0.0.1 unless --bind says otherwise).
     Serve {
-        #[arg(long, default_value_t = 0)]
+        /// Address to listen on; 0.0.0.0 exposes the UI to the network over plain HTTP.
+        #[arg(long, env = "GRANTCENTRAL_BIND", default_value = "127.0.0.1")]
+        bind: IpAddr,
+        /// Port to listen on (0: a free port).
+        #[arg(long, env = "GRANTCENTRAL_PORT", default_value_t = 0)]
         port: u16,
         /// Do not open a browser.
         #[arg(long)]
@@ -225,9 +230,9 @@ async fn dispatch(cli: Cli) -> Result<ExitCode> {
             eprintln!("stored; reference it as {{ keyring = \"{account}\" }}");
             Ok(ExitCode::SUCCESS)
         }
-        Command::Serve { port, no_open } => {
+        Command::Serve { bind, port, no_open } => {
             let project = open_project(&cli.project)?;
-            web::serve(project, port, !no_open).await?;
+            web::serve(project, bind, port, !no_open).await?;
             Ok(ExitCode::SUCCESS)
         }
     }

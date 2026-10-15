@@ -165,11 +165,16 @@ URL-encoded and JSON-escaped forms, and `Authorization: Basic` headers. The
 
 ## The web UI
 
-`grantcentral serve` binds to `127.0.0.1` only and prints a URL carrying a
-random token. Every API call must present that token, and requests whose
-`Host` header is not the loopback address are refused, which blocks DNS
+`grantcentral serve` binds to `127.0.0.1` and prints a URL carrying a random
+token. Every API call must present that token. Requests whose `Host` header is
+not `localhost` or an IP literal (any port) are refused, which blocks DNS
 rebinding. The local process owns the filesystem, git, the loopback redirect
 listener and the keychain.
+
+`--bind` (or `GRANTCENTRAL_BIND`) takes another IP address to listen on, such
+as `0.0.0.0` in a container, and `--port` (or `GRANTCENTRAL_PORT`) fixes the
+port, which is otherwise a free one. Off loopback the UI is reachable from the
+network and the token travels over plain HTTP, so `serve` warns about it.
 
 The server checks the project files once a second, so files you add, remove or
 edit in another editor show up in the UI right away. An open file reloads only
